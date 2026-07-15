@@ -21,10 +21,13 @@ import type { GameSettings } from "../services/SaveService";
 import { audio } from "../services/AudioService";
 import { BoardView } from "../rendering/BoardView";
 import { AnimationPlayer } from "../rendering/AnimationPlayer";
+import { Background } from "../rendering/Background";
+import { Fx } from "../rendering/Fx";
 import {
   BOARD_X,
   BOARD_Y,
   TILE_DISPLAY,
+  cellCenter,
   indexAtWorld,
 } from "../rendering/layout";
 import { Hud } from "../../ui/Hud";
@@ -45,6 +48,7 @@ export class ParkScene extends Phaser.Scene {
   private draft!: DraftModal;
   private debug!: DebugPanel;
   private anim!: AnimationPlayer;
+  private fx!: Fx;
 
   private selectedBuildingId: string | null = null;
   private placementRotation = 0;
@@ -79,8 +83,11 @@ export class ParkScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor(THEME.bg);
+    this.cameras.main.fadeIn(280, 20, 16, 32);
 
+    new Background(this, { motes: 14 });
     this.board = new BoardView(this);
+    this.fx = new Fx(this);
     this.hud = new Hud(this);
     this.catalog = new CatalogPanel(this, (id) => this.selectBuilding(id));
     this.detail = new DetailPanel(this);
@@ -271,6 +278,21 @@ export class ParkScene extends Phaser.Scene {
     );
     if (res.ok) {
       audio.playSfx("place");
+      // 放置尘土与星光
+      const def0 = getBuildingDef(this.selectedBuildingId);
+      const cells = footprintIndices(idx, def0, this.placementRotation) ?? [idx];
+      let sx = 0;
+      let sy = 0;
+      for (const c of cells) {
+        const cc = cellCenter(c);
+        sx += cc.x;
+        sy += cc.y;
+      }
+      const px = sx / cells.length;
+      const py = sy / cells.length;
+      this.fx.dustPuff(px, py + 20);
+      this.fx.sparkle(px, py);
+      this.fx.shake(90, 0.003);
       this.board.refresh(this.state);
       this.board.clearHighlight();
       this.board.clearOverlay();
@@ -363,49 +385,26 @@ export class ParkScene extends Phaser.Scene {
       }
       this.startBtn.setVisible(true);
       this.refreshAll();
-      this.hud.showToast(`第 ${this.state.day} 天开始！`);
+      this.hud.showBanner(`第 ${this.state.day} 天`, THEME.textGold);
     });
   }
 
   private goResult(): void {
     this.autosave();
-    this.scene.start("Result", { state: this.state });
+    this.cameras.main.fadeOut(300, 20, 16, 32);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start("Result", { state: this.state });
+    });
   }
 
   // ————————————————— 特效 —————————————————
   private spawnCoin(x: number, y: number, amount: number, thunder: boolean): void {
-    const color = thunder ? "#b39ddb" : THEME.textGold;
-    const t = this.add
-      .text(x, y, `+${amount}`, {
-        fontFamily: FONT_FAMILY,
-        fontSize: "18px",
-        color,
-        fontStyle: "bold",
-      })
-      .setOrigin(0.5)
-      .setDepth(DEPTH.fx);
-    this.tweens.add({
-      targets: t,
-      y: y - 36,
-      alpha: 0,
-      duration: 700,
-      ease: "Cubic.easeOut",
-      onComplete: () => t.destroy(),
-    });
+    const color = thunder ? "#e1bee7" : THEME.textGold;
+    this.fx.floatText(x, y - 8, `+${amount}`, color, thunder ? 22 : 18);
+    this.fx.coinBurst(x, y);
 
     if (thunder) {
-      const flash = this.add
-        .image(x, y, "glow")
-        .setTint(0xb39ddb)
-        .setScale(3)
-        .setDepth(DEPTH.fx - 1);
-      this.tweens.add({
-        targets: flash,
-        alpha: 0,
-        scale: 5,
-        duration: 300,
-        onComplete: () => flash.destroy(),
-      });
+      this.fx.thunderBolt(x, y);
       audio.playSfx("thunder");
     }
 

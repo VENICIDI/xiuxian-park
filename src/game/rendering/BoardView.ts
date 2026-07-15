@@ -22,6 +22,7 @@ export class BoardView {
   private overlayGfx: Phaser.GameObjects.Graphics;
   private buildingLayer: Phaser.GameObjects.Container;
   private sprites = new Map<number, Phaser.GameObjects.Container>();
+  private seen = new Set<string>();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -65,15 +66,20 @@ export class BoardView {
       }
     }
 
-    // 路线中心连线（表示游客行走方向）
-    g.lineStyle(8, 0x5b7fb8, 0.55);
-    g.beginPath();
-    ROUTE.forEach((cellIndex, i) => {
-      const c = cellCenter(cellIndex);
-      if (i === 0) g.moveTo(c.x, c.y);
-      else g.lineTo(c.x, c.y);
-    });
-    g.strokePath();
+    // 路线中心连线（表示游客行走方向）：外发光 + 亮线
+    const strokeRoute = (width: number, color: number, alpha: number) => {
+      g.lineStyle(width, color, alpha);
+      g.beginPath();
+      ROUTE.forEach((cellIndex, i) => {
+        const c = cellCenter(cellIndex);
+        if (i === 0) g.moveTo(c.x, c.y);
+        else g.lineTo(c.x, c.y);
+      });
+      g.strokePath();
+    };
+    strokeRoute(16, 0x5b7fb8, 0.2);
+    strokeRoute(8, 0x7fa5df, 0.55);
+    strokeRoute(3, 0xcfe0ff, 0.7);
 
     // 路线方向箭头（沿道路每隔几格）
     g.fillStyle(0xcfe0ff, 0.5);
@@ -123,45 +129,150 @@ export class BoardView {
     const bh = rectH - 12;
     const cx = tl.x + rectW / 2;
     const cy = tl.y + rectH / 2;
+    const disabled = (inst.disabledDays ?? 0) > 0;
+    const rarityColor = RARITY_COLOR[def.rarity];
     const container = this.scene.add.container(cx, cy);
 
+    // 落地阴影
+    const shadow = this.scene.add.graphics();
+    shadow.fillStyle(0x000000, 0.28);
+    shadow.fillEllipse(0, bh / 2 + 2, bw * 0.86, 16);
+    container.add(shadow);
+
+    // 品质外发光（宝品及以上）
+    if (def.rarity === "rare" || def.rarity === "epic" || def.rarity === "legendary") {
+      const halo = this.scene.add
+        .image(0, 0, "glow")
+        .setTint(rarityColor)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(bw / 26, bh / 26)
+        .setAlpha(0.32);
+      container.add(halo);
+      this.scene.tweens.add({
+        targets: halo,
+        alpha: 0.14,
+        duration: 1100,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
+
     const body = this.scene.add.graphics();
-    body.fillStyle(RARITY_COLOR[def.rarity], 1);
-    body.fillRoundedRect(-bw / 2 - 2, -bh / 2 - 2, bw + 4, bh + 4, 10);
-    body.fillStyle(def.color, 1);
-    body.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 8);
-    body.fillStyle(0xffffff, 0.12);
-    body.fillRoundedRect(-bw / 2, -bh / 2, bw, Math.min(bh / 3, 24), 8);
+    // 品质描边
+    body.fillStyle(rarityColor, 1);
+    body.fillRoundedRect(-bw / 2 - 3, -bh / 2 - 3, bw + 6, bh + 6, 12);
+    // 主体：下半深色打底，上半浅色叠加，形成上浅下深的立体感
+    body.fillStyle(this.lighten(def.color, -0.2), 1);
+    body.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 9);
+    body.fillStyle(this.lighten(def.color, 0.12), 1);
+    body.fillRoundedRect(-bw / 2, -bh / 2, bw, bh * 0.55, 9);
+    // 顶部高光带
+    body.fillStyle(0xffffff, 0.18);
+    body.fillRoundedRect(-bw / 2 + 3, -bh / 2 + 3, bw - 6, Math.min(bh / 3, 22), 7);
     container.add(body);
 
+    // 图标底座 + 图标
+    const badge = this.scene.add.graphics();
+    badge.fillStyle(0x1a1226, 0.28);
+    badge.fillCircle(0, -bh / 6, 20);
+    container.add(badge);
     const glyph = this.categoryGlyph(def.category);
     const glyphText = this.scene.add
-      .text(0, -12, glyph, { fontFamily: FONT_FAMILY, fontSize: "26px" })
+      .text(0, -bh / 6, glyph, { fontFamily: FONT_FAMILY, fontSize: "26px" })
       .setOrigin(0.5);
     container.add(glyphText);
 
     const name = this.scene.add
-      .text(0, 18, def.name, {
+      .text(0, bh / 2 - 20, def.name, {
         fontFamily: FONT_FAMILY,
         fontSize: "12px",
-        color: "#1a1226",
+        color: "#faf6ff",
         fontStyle: "bold",
         align: "center",
+        stroke: "#1a1226",
+        strokeThickness: 3,
         wordWrap: { width: bw - 6 },
       })
       .setOrigin(0.5);
     container.add(name);
 
-    // 等级点
-    for (let l = 0; l < inst.level; l++) {
-      const pip = this.scene.add.graphics();
-      pip.fillStyle(0xffd54f, 1);
-      pip.fillCircle(-bw / 2 + 8 + l * 10, bh / 2 - 8, 3.5);
-      container.add(pip);
+    // 等级星
+    const stars = this.scene.add
+      .text(-bw / 2 + 6, -bh / 2 + 4, "★".repeat(inst.level), {
+        fontFamily: FONT_FAMILY,
+        fontSize: "12px",
+        color: "#ffd54f",
+      })
+      .setOrigin(0, 0);
+    container.add(stars);
+
+    // 停业遮罩
+    if (disabled) {
+      container.setAlpha(0.55);
+      const tag = this.scene.add
+        .text(0, 0, "停业", {
+          fontFamily: FONT_FAMILY,
+          fontSize: "16px",
+          color: "#ff6b81",
+          fontStyle: "bold",
+          stroke: "#1a1226",
+          strokeThickness: 4,
+        })
+        .setOrigin(0.5);
+      container.add(tag);
     }
 
     this.buildingLayer.add(container);
     this.sprites.set(index, container);
+
+    // idle 微动：游乐设施轻微上下浮动，增益建筑呼吸缩放
+    if (!disabled) {
+      if (def.category === "ride") {
+        this.scene.tweens.add({
+          targets: glyphText,
+          y: glyphText.y - 3,
+          duration: 900 + Math.random() * 400,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      } else if (def.category === "buff") {
+        this.scene.tweens.add({
+          targets: glyphText,
+          scale: 1.15,
+          angle: 8,
+          duration: 1400,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+      }
+    }
+
+    // 新建筑弹入
+    if (!this.seen.has(inst.instanceId)) {
+      this.seen.add(inst.instanceId);
+      container.setScale(0.4);
+      container.setAlpha(disabled ? 0 : 0.2);
+      this.scene.tweens.add({
+        targets: container,
+        scale: 1,
+        alpha: disabled ? 0.55 : 1,
+        duration: 320,
+        ease: "Back.easeOut",
+      });
+    }
+  }
+
+  /** 颜色明暗调整，amount ∈ [-1,1]。 */
+  private lighten(color: number, amount: number): number {
+    const r = (color >> 16) & 0xff;
+    const g = (color >> 8) & 0xff;
+    const b = color & 0xff;
+    const adj = (v: number) =>
+      Math.max(0, Math.min(255, Math.round(v + amount * 255)));
+    return (adj(r) << 16) | (adj(g) << 8) | adj(b);
   }
 
   private categoryGlyph(cat: string): string {

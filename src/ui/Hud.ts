@@ -14,14 +14,18 @@ export class Hud {
   private eventTitle: Phaser.GameObjects.Text;
   private eventDesc: Phaser.GameObjects.Text;
   private toast: Phaser.GameObjects.Text;
+  private banner: Phaser.GameObjects.Text;
+  private displayedStones = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     const g = scene.add.graphics().setDepth(DEPTH.hud);
-    g.fillStyle(THEME.bgPanel, 1);
+    g.fillGradientStyle(THEME.bgPanelLight, THEME.bgPanelLight, THEME.bgPanel, THEME.bgPanel, 1);
     g.fillRect(0, 0, DESIGN_WIDTH, 80);
-    g.lineStyle(2, THEME.accent, 0.4);
+    g.lineStyle(2, THEME.accent, 0.5);
     g.lineBetween(0, 80, DESIGN_WIDTH, 80);
+    g.lineStyle(1, 0xc9a8ff, 0.25);
+    g.lineBetween(0, 82, DESIGN_WIDTH, 82);
 
     const mk = (x: number, label: string, color: string = THEME.textGold) => {
       scene.add
@@ -73,16 +77,78 @@ export class Hud {
       .setOrigin(0.5)
       .setDepth(DEPTH.tooltip)
       .setAlpha(0);
+
+    this.banner = scene.add
+      .text(DESIGN_WIDTH / 2, 260, "", {
+        fontFamily: FONT_FAMILY,
+        fontSize: "48px",
+        color: THEME.textGold,
+        fontStyle: "bold",
+        stroke: "#1a1226",
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.tooltip)
+      .setAlpha(0);
   }
 
   update(state: GameState): void {
     this.dayText.setText(`${state.day} / ${BALANCE.finalDay}`);
-    this.stoneText.setText(`◈ ${state.spiritStones}`);
+    this.setStones(state.spiritStones);
     this.visitorText.setText(`♟ ${state.visitorCount}`);
     const ev = getDailyEvent(state.activeEventId);
     this.eventTitle.setText(`今日事件：${ev.name}${ev.negative ? "（负面）" : ""}`);
     this.eventTitle.setColor(ev.negative ? THEME.danger : THEME.accentText);
     this.eventDesc.setText(ev.description);
+  }
+
+  /** 灵石数字滚动到目标值。 */
+  private setStones(target: number): void {
+    const from = this.displayedStones;
+    if (from === target) {
+      this.stoneText.setText(`◈ ${target}`);
+      return;
+    }
+    const counter = { v: from };
+    this.scene.tweens.add({
+      targets: counter,
+      v: target,
+      duration: 500,
+      ease: "Cubic.easeOut",
+      onUpdate: () => this.stoneText.setText(`◈ ${Math.round(counter.v)}`),
+      onComplete: () => {
+        this.displayedStones = target;
+        this.stoneText.setText(`◈ ${target}`);
+      },
+    });
+    this.displayedStones = target;
+    // 灵石变动时轻微弹一下
+    this.scene.tweens.add({
+      targets: this.stoneText,
+      scale: target > from ? 1.18 : 0.9,
+      duration: 140,
+      yoyo: true,
+      ease: "Quad.easeOut",
+    });
+  }
+
+  /** 大字横幅（新一天/关键提示）。 */
+  showBanner(msg: string, color: string = THEME.textGold): void {
+    this.banner.setText(msg).setColor(color).setAlpha(0).setScale(0.7);
+    this.scene.tweens.killTweensOf(this.banner);
+    this.scene.tweens.add({
+      targets: this.banner,
+      alpha: 1,
+      scale: 1,
+      duration: 340,
+      ease: "Back.easeOut",
+    });
+    this.scene.tweens.add({
+      targets: this.banner,
+      alpha: 0,
+      delay: 1200,
+      duration: 500,
+    });
   }
 
   showToast(msg: string, isError = false): void {

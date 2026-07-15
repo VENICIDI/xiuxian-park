@@ -5,6 +5,8 @@ import type { GameState } from "../models/game-state";
 import { FONT_FAMILY, THEME } from "../theme";
 import { SaveService } from "../services/SaveService";
 import { audio } from "../services/AudioService";
+import { Background } from "../rendering/Background";
+import { Fx } from "../rendering/Fx";
 import { Button } from "../../ui/Button";
 
 export class ResultScene extends Phaser.Scene {
@@ -21,11 +23,17 @@ export class ResultScene extends Phaser.Scene {
   create(): void {
     const cx = DESIGN_WIDTH / 2;
     this.cameras.main.setBackgroundColor(THEME.bg);
+    this.cameras.main.fadeIn(320, 20, 16, 32);
 
     const victory = this.state.statistics.failureReason == null;
+    new Background(this, {
+      top: victory ? 0x1e1a3e : 0x241220,
+      bottom: victory ? 0x33285a : 0x361826,
+      motes: victory ? 26 : 8,
+    });
     audio.playSfx(victory ? "win" : "lose");
 
-    this.add
+    const title = this.add
       .text(cx, 130, victory ? "飞升成仙！" : "乐园倒闭", {
         fontFamily: FONT_FAMILY,
         fontSize: "64px",
@@ -33,7 +41,18 @@ export class ResultScene extends Phaser.Scene {
         fontStyle: "bold",
       })
       .setOrigin(0.5)
-      .setShadow(0, 4, "#000000", 8, true, true);
+      .setShadow(0, 4, "#000000", 8, true, true)
+      .setScale(0.6)
+      .setAlpha(0);
+    this.tweens.add({
+      targets: title,
+      scale: 1,
+      alpha: 1,
+      duration: 500,
+      ease: "Back.easeOut",
+    });
+
+    if (victory) this.celebrate();
 
     this.add
       .text(
@@ -88,7 +107,7 @@ export class ResultScene extends Phaser.Scene {
       fontSize: 22,
       onClick: () => {
         SaveService.clear();
-        this.scene.start("Park", { continueGame: false });
+        this.transitionTo("Park", { continueGame: false });
       },
     });
     new Button(this, cx + 130, btnY, "返回主菜单", {
@@ -99,8 +118,30 @@ export class ResultScene extends Phaser.Scene {
       hoverColor: 0x5a6578,
       onClick: () => {
         SaveService.clear();
-        this.scene.start("MainMenu");
+        this.transitionTo("MainMenu");
       },
+    });
+  }
+
+  private celebrate(): void {
+    const fx = new Fx(this);
+    const cx = DESIGN_WIDTH / 2;
+    // 持续飘落的金币与星光
+    this.time.addEvent({
+      delay: 260,
+      repeat: 16,
+      callback: () => {
+        const x = Phaser.Math.Between(cx - 260, cx + 260);
+        fx.coinBurst(x, 90);
+        fx.sparkle(Phaser.Math.Between(cx - 300, cx + 300), Phaser.Math.Between(120, 260));
+      },
+    });
+  }
+
+  private transitionTo(key: string, data?: object): void {
+    this.cameras.main.fadeOut(280, 20, 16, 32);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start(key, data);
     });
   }
 }

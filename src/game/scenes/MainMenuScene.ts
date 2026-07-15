@@ -3,6 +3,7 @@ import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../config";
 import { FONT_FAMILY, THEME } from "../theme";
 import { SaveService } from "../services/SaveService";
 import { audio } from "../services/AudioService";
+import { Background } from "../rendering/Background";
 import { Button } from "../../ui/Button";
 
 export class MainMenuScene extends Phaser.Scene {
@@ -14,9 +15,10 @@ export class MainMenuScene extends Phaser.Scene {
     const cx = DESIGN_WIDTH / 2;
 
     this.cameras.main.setBackgroundColor(THEME.bg);
-    this.drawBackdrop();
+    this.cameras.main.fadeIn(320, 20, 16, 32);
+    new Background(this, { top: 0x1a1230, bottom: 0x2c1f48, motes: 22 });
 
-    this.add
+    const title = this.add
       .text(cx, 150, "修仙游乐园", {
         fontFamily: FONT_FAMILY,
         fontSize: "72px",
@@ -25,6 +27,15 @@ export class MainMenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setShadow(0, 4, "#000000", 8, true, true);
+    // 标题轻微呼吸
+    this.tweens.add({
+      targets: title,
+      scale: 1.03,
+      duration: 2200,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
 
     this.add
       .text(cx, 218, "Xian Park · Game Jam MVP", {
@@ -87,21 +98,13 @@ export class MainMenuScene extends Phaser.Scene {
       .setOrigin(0.5);
   }
 
-  private drawBackdrop(): void {
-    const g = this.add.graphics();
-    g.fillStyle(THEME.bgPanel, 0.5);
-    for (let i = 0; i < 40; i++) {
-      const x = (i * 137) % DESIGN_WIDTH;
-      const y = (i * 89) % DESIGN_HEIGHT;
-      g.fillStyle(0x8e6bd6, 0.05 + (i % 3) * 0.02);
-      g.fillCircle(x, y, 40 + (i % 4) * 20);
-    }
-  }
-
   private startGame(continueGame: boolean): void {
     audio.unlock();
     audio.startMusic();
-    this.scene.start("Park", { continueGame });
+    this.cameras.main.fadeOut(280, 20, 16, 32);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start("Park", { continueGame });
+    });
   }
 
   private showHelp(): void {

@@ -116,48 +116,74 @@ export class AnimationPlayer {
   private animateVisitor(tl: Timeline, opts: PlayOptions): void {
     const sect = SECT_DEFINITIONS[tl.sect];
     const start = cellCenter(ENTRANCE_INDEX);
-    const dot = this.scene.add
-      .image(start.x, start.y, "visitor-dot")
+
+    const person = this.scene.add.container(start.x, start.y);
+    const shadow = this.scene.add
+      .image(0, 16, "shadow")
+      .setAlpha(0.35)
+      .setScale(0.7);
+    const body = this.scene.add
+      .image(0, 0, "person")
       .setTint(sect.color)
-      .setScale(0.8);
-    this.layer.add(dot);
+      .setScale(0.9)
+      .setOrigin(0.5, 0.75);
+    person.add([shadow, body]);
+    this.layer.add(person);
+
+    // 走路摆动（身体上下轻微起伏）
+    const bob = this.scene.tweens.add({
+      targets: body,
+      y: -4,
+      duration: 240 / opts.speed,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
 
     // 只需走到最后一次消费的位置即可离场（无消费的游客快速走一小段后离开）
     const walkUntil =
       tl.lastRouteIndex >= 0
         ? Math.min(tl.lastRouteIndex + 1, ROUTE.length - 1)
         : Math.min(3, ROUTE.length - 1);
-    const stepDur = 130 / opts.speed;
+    const stepDur = 150 / opts.speed;
     let idx = 0;
+
+    const cleanup = () => {
+      bob.stop();
+      person.destroy();
+    };
 
     const stepTo = () => {
       if (this.done) {
-        dot.destroy();
+        cleanup();
         return;
       }
       if (idx > walkUntil) {
         this.scene.tweens.add({
-          targets: dot,
+          targets: person,
           alpha: 0,
-          scale: 0.4,
-          duration: 160 / opts.speed,
+          y: person.y - 10,
+          duration: 200 / opts.speed,
           onComplete: () => {
-            dot.destroy();
+            cleanup();
             this.visitorDone();
           },
         });
         return;
       }
       const c = cellCenter(ROUTE[idx]);
+      // 朝向：根据水平位移翻转
+      if (c.x < person.x - 1) body.setFlipX(true);
+      else if (c.x > person.x + 1) body.setFlipX(false);
       this.scene.tweens.add({
-        targets: dot,
+        targets: person,
         x: c.x,
         y: c.y,
         duration: stepDur,
         ease: "Sine.easeInOut",
         onComplete: () => {
           if (this.done) {
-            dot.destroy();
+            cleanup();
             return;
           }
           const purchases = tl.purchasesByRoute.get(idx);
@@ -166,10 +192,12 @@ export class AnimationPlayer {
               const pc = cellCenter(p.cell);
               opts.onCoin?.(pc.x, pc.y, p.amount, p.thunder);
             }
+            // 消费时开心一跳
             this.scene.tweens.add({
-              targets: dot,
-              scale: 1.05,
-              duration: 70 / opts.speed,
+              targets: body,
+              scaleX: 1.05,
+              scaleY: 1.15,
+              duration: 90 / opts.speed,
               yoyo: true,
             });
           }

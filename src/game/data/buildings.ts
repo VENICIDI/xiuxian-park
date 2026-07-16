@@ -18,6 +18,7 @@ export const BUILDING_DEFINITIONS: BuildingDefinition[] = [
     baseRevenue: 18,
     levelRevenue: [18, 26, 36, 50],
     color: 0x6ec6ff,
+    sprite: "b-sword-coaster",
     effects: [],
     description: "御剑飞驰，剑修最爱。刺激且高人气的招牌项目。",
   },

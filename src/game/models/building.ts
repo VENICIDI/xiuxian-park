@@ -48,6 +48,8 @@ export type BuildingDefinition = {
   levelRevenue: number[];
   /** 占位美术颜色（十六进制），正式美术后置 */
   color: number;
+  /** 正式美术贴图的纹理 key（在 PreloadScene 加载）；缺省则回退到程序化方块渲染。 */
+  sprite?: string;
   effects: EffectSpec[];
   /** 简短说明，用于卡片/详情 */
   description: string;

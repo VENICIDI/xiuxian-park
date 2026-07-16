@@ -2,7 +2,12 @@ import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../config";
 import { FONT_FAMILY, THEME } from "../theme";
 import { applyHiDpiCamera } from "../hidpi";
+import { removeBackground } from "../rendering/chromaKey";
 import bgParkUrl from "../../assets/bg-park.png";
+import bSwordCoasterUrl from "../../assets/building-sword-coaster.png";
+
+/** 需要运行时抠白底的建筑贴图 key（源图为白底 JPEG/无 alpha 时的权宜处理）。 */
+const BUILDING_KEYS_NEED_CHROMAKEY = ["b-sword-coaster"];
 
 /**
  * 预加载场景。MVP 使用程序化占位美术，因此这里主要生成基础纹理
@@ -43,10 +48,16 @@ export class PreloadScene extends Phaser.Scene {
 
     // 场景背景大图（明亮仙境游乐园），驱动加载进度
     this.load.image("bg-park", bgParkUrl);
+    // 建筑正式美术（透明底 PNG）；纹理 key 与建筑定义的 sprite 字段对应
+    this.load.image("b-sword-coaster", bSwordCoasterUrl);
   }
 
   create(): void {
     this.generateTextures();
+    // 白底建筑贴图去背，生成透明纹理（正式透明 PNG 资产接入后可移除对应 key）
+    for (const key of BUILDING_KEYS_NEED_CHROMAKEY) {
+      if (this.textures.exists(key)) removeBackground(this, key);
+    }
     this.scene.start("MainMenu");
   }
 

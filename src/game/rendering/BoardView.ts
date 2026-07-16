@@ -7,6 +7,8 @@ import type { GameState } from "../models/game-state";
 import { DEPTH, FONT_FAMILY, THEME } from "../theme";
 import { ENTRANCE_INDEX, EXIT_INDEX, ROUTE, isRoad } from "../systems/route";
 import {
+  HALF_H,
+  HALF_W,
   cellCenter,
   cellDiamond,
   footprintDiamond,
@@ -260,41 +262,62 @@ export class BoardView {
     container.add(shadow);
 
     const rarityColor = RARITY_COLOR[def.rarity];
-    const roofColor = this.lighten(def.color, 0.22);
-    const leftColor = this.lighten(def.color, -0.44);
-    const rightColor = this.lighten(def.color, -0.22);
-    const edgeColor = this.lighten(def.color, -0.55);
+    const useArt = !!def.sprite && this.scene.textures.exists(def.sprite);
+    const groundW = (eff.w + eff.h) * HALF_W;
+    // idle 微动的目标：真图用整张贴图，占位用屋顶 emoji
+    let bob: Phaser.GameObjects.Image | Phaser.GameObjects.Text | undefined;
 
-    const box = this.scene.add.graphics();
-    // 左侧墙面（西南面，最暗）
-    box.fillStyle(leftColor, 1);
-    this.poly(box, [left, front, rFront, rLeft]);
-    // 右侧墙面（东南面，中等）
-    box.fillStyle(rightColor, 1);
-    this.poly(box, [front, right, rRight, rFront]);
-    // 屋顶（最亮）
-    box.fillStyle(roofColor, 1);
-    this.poly(box, [rBack, rRight, rFront, rLeft]);
-    // 竖直棱边（左/前/右），强化体块
-    box.lineStyle(1.5, edgeColor, 0.7);
-    box.beginPath();
-    box.moveTo(left.x, left.y);
-    box.lineTo(rLeft.x, rLeft.y);
-    box.moveTo(front.x, front.y);
-    box.lineTo(rFront.x, rFront.y);
-    box.moveTo(right.x, right.y);
-    box.lineTo(rRight.x, rRight.y);
-    box.strokePath();
-    // 底边棱线
-    box.beginPath();
-    box.moveTo(left.x, left.y);
-    box.lineTo(front.x, front.y);
-    box.lineTo(right.x, right.y);
-    box.strokePath();
-    // 屋顶品质描边（规范：品质决定描边色）
-    box.lineStyle(2.5, rarityColor, 0.95);
-    this.strokePoly(box, [rBack, rRight, rFront, rLeft]);
-    container.add(box);
+    if (useArt) {
+      // 正式美术：透明底 PNG。以“占地宽度”为基准缩放，底边锚点落在占地菱形中心，
+      // 使建筑底座踩在格子上而非漂浮。ART_WIDTH_SCALE / ART_ANCHOR_Y 便于手动微调。
+      const ART_WIDTH_SCALE = 1.4;
+      const img = this.scene.add
+        .image(0, HALF_H * 0.15, def.sprite as string)
+        .setOrigin(0.5, 0.9);
+      const scale = (groundW * ART_WIDTH_SCALE) / img.width;
+      img.setScale(scale);
+      // 等距下 1×2（竖）= 2×1（横）的水平镜像：奇数朝向翻转贴图以贴合另一条对角线
+      if (((inst.rotation ?? 0) & 1) === 1) img.setFlipX(true);
+      if (disabled) img.setTint(0x888888);
+      container.add(img);
+      bob = img;
+    } else {
+      const roofColor = this.lighten(def.color, 0.22);
+      const leftColor = this.lighten(def.color, -0.44);
+      const rightColor = this.lighten(def.color, -0.22);
+      const edgeColor = this.lighten(def.color, -0.55);
+
+      const box = this.scene.add.graphics();
+      // 左侧墙面（西南面，最暗）
+      box.fillStyle(leftColor, 1);
+      this.poly(box, [left, front, rFront, rLeft]);
+      // 右侧墙面（东南面，中等）
+      box.fillStyle(rightColor, 1);
+      this.poly(box, [front, right, rRight, rFront]);
+      // 屋顶（最亮）
+      box.fillStyle(roofColor, 1);
+      this.poly(box, [rBack, rRight, rFront, rLeft]);
+      // 竖直棱边（左/前/右），强化体块
+      box.lineStyle(1.5, edgeColor, 0.7);
+      box.beginPath();
+      box.moveTo(left.x, left.y);
+      box.lineTo(rLeft.x, rLeft.y);
+      box.moveTo(front.x, front.y);
+      box.lineTo(rFront.x, rFront.y);
+      box.moveTo(right.x, right.y);
+      box.lineTo(rRight.x, rRight.y);
+      box.strokePath();
+      // 底边棱线
+      box.beginPath();
+      box.moveTo(left.x, left.y);
+      box.lineTo(front.x, front.y);
+      box.lineTo(right.x, right.y);
+      box.strokePath();
+      // 屋顶品质描边（规范：品质决定描边色）
+      box.lineStyle(2.5, rarityColor, 0.95);
+      this.strokePoly(box, [rBack, rRight, rFront, rLeft]);
+      container.add(box);
+    }
 
     // 品质发光（稀有及以上）
     if (def.rarity === "rare" || def.rarity === "epic" || def.rarity === "legendary") {
@@ -315,16 +338,20 @@ export class BoardView {
       });
     }
 
-    // 图标（屋顶中心上方）
-    const glyph = this.categoryGlyph(def.category);
-    const glyphText = this.scene.add
-      .text(0, -H - 4, glyph, { fontFamily: FONT_FAMILY, fontSize: "24px" })
-      .setOrigin(0.5);
-    container.add(glyphText);
+    // 图标（屋顶中心上方）——仅程序化占位时显示，真图不叠加 emoji
+    if (!useArt) {
+      const glyph = this.categoryGlyph(def.category);
+      const glyphText = this.scene.add
+        .text(0, -H - 4, glyph, { fontFamily: FONT_FAMILY, fontSize: "24px" })
+        .setOrigin(0.5);
+      container.add(glyphText);
+      bob = glyphText;
+    }
 
-    // 名称
+    // 名称（真图放到地砖前沿下方，避免遮挡建筑主体）
+    const nameY = useArt ? HALF_H + 8 : -H + 15;
     const name = this.scene.add
-      .text(0, -H + 15, def.name, {
+      .text(0, nameY, def.name, {
         fontFamily: FONT_FAMILY,
         fontSize: "11px",
         color: "#ffffff",
@@ -371,11 +398,11 @@ export class BoardView {
     this.sprites.set(index, container);
 
     // idle 微动
-    if (!disabled) {
+    if (!disabled && bob) {
       if (def.category === "ride") {
         this.scene.tweens.add({
-          targets: glyphText,
-          y: glyphText.y - 3,
+          targets: bob,
+          y: bob.y - 3,
           duration: 900 + Math.random() * 400,
           yoyo: true,
           repeat: -1,
@@ -383,9 +410,9 @@ export class BoardView {
         });
       } else if (def.category === "buff") {
         this.scene.tweens.add({
-          targets: glyphText,
-          scale: 1.15,
-          angle: 8,
+          targets: bob,
+          scale: bob.scale * 1.06,
+          angle: 3,
           duration: 1400,
           yoyo: true,
           repeat: -1,

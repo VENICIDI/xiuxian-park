@@ -470,11 +470,16 @@ export class BoardView {
     anchorForOOB: number,
   ): void {
     this.highlightGfx.clear();
-    const color = valid ? THEME.validGreen : THEME.invalidRed;
+    const g = this.highlightGfx;
+    // 可放置=灵气青（区别于草地绿）；不可放置=红。均叠深色分隔描边拉开与草地的对比。
+    const fill = valid ? THEME.placeValid : THEME.invalidRed;
+    const edge = valid ? THEME.placeValidEdge : THEME.invalidRedEdge;
+    const shade = valid ? THEME.placeValidShade : THEME.invalidRedShade;
     const draw = (index: number) => {
       const d = cellDiamond(index);
-      this.fillDiamond(this.highlightGfx, d, color, 0.32);
-      this.strokeDiamond(this.highlightGfx, d, color, 0.95, 3);
+      this.fillDiamond(g, d, fill, 0.36);
+      this.strokeDiamond(g, d, shade, 0.6, 4);
+      this.strokeDiamond(g, d, edge, 1, 2.5);
     };
     if (!cells) {
       if (anchorForOOB >= 0) draw(anchorForOOB);

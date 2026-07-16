@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { getBuildingDef } from "../data/buildings";
 import type { GameState } from "../models/game-state";
-import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../theme";
+import { DEPTH, FONT_FAMILY, THEME } from "../theme";
 import {
   applyDraft,
   createNewGame,
@@ -36,6 +36,7 @@ import {
   indexAtWorld,
 } from "../rendering/layout";
 import { Hud } from "../../ui/Hud";
+import { SKIN, fantasyPanel, medallion } from "../../ui/skin";
 import { CatalogPanel } from "../../ui/CatalogPanel";
 import { DetailPanel } from "../../ui/DetailPanel";
 import { DraftModal } from "../../ui/DraftModal";
@@ -138,45 +139,67 @@ export class ParkScene extends Phaser.Scene {
   // ————————————————— UI 底栏 —————————————————
   private buildBottomBar(): void {
     const barCy = BAR_Y + BAR_H / 2;
-    const g = this.add.graphics().setDepth(DEPTH.hud - 1);
-    g.fillStyle(THEME.bgPanel, 1);
-    g.fillRoundedRect(BAR_X, BAR_Y, BAR_W, BAR_H, RADIUS);
-    g.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
-    g.strokeRoundedRect(BAR_X, BAR_Y, BAR_W, BAR_H, RADIUS);
+    // 仙侠玉牌操作坞
+    const g = this.add.graphics().setDepth(DEPTH.hud - 2);
+    fantasyPanel(g, BAR_X, BAR_Y, BAR_W, BAR_H);
 
-    const startX = BAR_X + BAR_W - 115;
-
+    // 左侧提示：卷轴图标章 + 文本
+    medallion(this, BAR_X + 30, barCy, 16, "📜", SKIN.jadeLight).setDepth(
+      DEPTH.hud,
+    );
     this.hintText = this.add
-      .text(BAR_X + 18, BAR_Y + 10, "", {
+      .text(BAR_X + 56, BAR_Y + 13, "", {
         fontFamily: FONT_FAMILY,
         fontSize: "13px",
-        color: THEME.textDim,
-        wordWrap: { width: BAR_W - 320 },
+        color: SKIN.textDim,
+        wordWrap: { width: BAR_W - 360 },
       })
       .setDepth(DEPTH.hud);
 
+    const startX = BAR_X + BAR_W - 120;
+
     this.startBtn = new Button(this, startX, barCy, "开始营业", {
-      width: 200,
-      height: 46,
+      width: 210,
+      height: 48,
       fontSize: 20,
       variant: "primary",
       onClick: () => this.onStartBusiness(),
     });
     this.startBtn.setDepth(DEPTH.hud);
 
-    this.speedBtn = new Button(this, startX - 170, barCy, "速度 1×", {
-      width: 120,
+    // 主按钮灵气发光底（随按钮显隐，planning 阶段呼吸吸引点击）
+    const glow = this.add
+      .image(0, 0, "glow")
+      .setTint(THEME.green)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(8, 3)
+      .setAlpha(0.32);
+    this.startBtn.addAt(glow, 0);
+    this.tweens.add({
+      targets: glow,
+      alpha: 0.12,
+      duration: 1050,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    this.speedBtn = new Button(this, startX - 184, barCy, "速度 1×", {
+      width: 132,
       height: 44,
-      fontSize: 18,
+      fontSize: 17,
       variant: "secondary",
+      color: SKIN.jade,
+      hoverColor: SKIN.jadeLight,
+      textColor: SKIN.textLight,
       onClick: () => this.toggleSpeed(),
     });
     this.speedBtn.setDepth(DEPTH.hud).setVisible(false);
 
     this.skipBtn = new Button(this, startX, barCy, "跳过", {
-      width: 120,
+      width: 132,
       height: 44,
-      fontSize: 18,
+      fontSize: 17,
       variant: "danger",
       onClick: () => this.anim.skip(),
     });

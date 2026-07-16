@@ -49,6 +49,13 @@ export const THEME = {
   validGreen: PALETTE.green,
   invalidRed: PALETTE.red,
 
+  // —— 放置预览：用「灵气青」而非绿色，避免与草地绿混淆 ——
+  placeValid: 0x2fe0c2, // 灵气青（可放置）
+  placeValidEdge: 0xc4fff4, // 可放置亮描边
+  placeValidShade: 0x083029, // 深色分隔描边（与草地拉开）
+  invalidRedEdge: 0xffb3b3, // 不可放置亮描边
+  invalidRedShade: 0x3a0f0f, // 不可放置深色分隔描边
+
   // —— 文本 ——
   textLight: "#f4eeff",
   textDim: "#c9bfe6",

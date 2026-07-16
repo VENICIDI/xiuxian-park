@@ -1,4 +1,36 @@
-import { GRID_HEIGHT, GRID_WIDTH, indexOf } from "../config";
+import {
+  DESIGN_HEIGHT,
+  DESIGN_WIDTH,
+  GRID_HEIGHT,
+  GRID_WIDTH,
+  indexOf,
+} from "../config";
+
+/**
+ * 屏幕分区（1280×720）：顶部 HUD 10% / 地图 65% / 右侧面板 25%，其余为页面边距。
+ */
+export const HUD_H = Math.round(DESIGN_HEIGHT * 0.1); // 72（顶部 10%）
+export const MARGIN = 24; // 页面呼吸边距（规范十八）
+
+export const MAP_X = MARGIN; // 24
+export const MAP_W = Math.round(DESIGN_WIDTH * 0.65); // 832（地图 65%）
+
+export const PANEL_W = Math.round(DESIGN_WIDTH * 0.25); // 320（右侧 25%）
+export const PANEL_X = DESIGN_WIDTH - MARGIN - PANEL_W; // 936
+export const PANEL_Y = HUD_H + 16; // 88
+export const PANEL_H = DESIGN_HEIGHT - PANEL_Y - MARGIN; // 608
+
+/** 底部操作栏（位于地图列底部）。 */
+export const BAR_H = 60;
+export const BAR_X = MAP_X;
+export const BAR_W = MAP_W;
+export const BAR_Y = DESIGN_HEIGHT - MARGIN - BAR_H; // 636
+
+/** 左侧地图游玩区（用于输入命中的矩形包围盒）。 */
+export const PLAY_X = 0;
+export const PLAY_Y = HUD_H;
+export const PLAY_W = MAP_X + MAP_W + 24; // 覆盖地图列
+export const PLAY_H = DESIGN_HEIGHT - HUD_H;
 
 /**
  * 45° 伪等距（2:1 菱形）投影布局。
@@ -13,19 +45,9 @@ export const TILE_H = 46; // 菱形地砖高（2:1）
 export const HALF_W = TILE_W / 2;
 export const HALF_H = TILE_H / 2;
 
-/** 投影原点（网格角 (0,0) 的屏幕位置），使棋盘落在左侧游玩区并居中。 */
-export const ORIGIN_X = 356;
-export const ORIGIN_Y = 214;
-
-export const PANEL_X = 762;
-export const PANEL_W = 494;
-export const PANEL_Y = 96;
-
-/** 左侧游玩区（用于输入命中的矩形包围盒）。 */
-export const PLAY_X = 0;
-export const PLAY_Y = 84;
-export const PLAY_W = 752;
-export const PLAY_H = 566;
+/** 投影原点（网格角 (0,0) 的屏幕位置），使棋盘落在地图列并居中。 */
+export const ORIGIN_X = 394;
+export const ORIGIN_Y = 186;
 
 export type Pt = { x: number; y: number };
 

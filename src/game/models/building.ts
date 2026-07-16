@@ -85,13 +85,13 @@ export const RARITY_MULTIPLIER: Record<BuildingRarity, number> = {
   legendary: 2.0,
 };
 
-/** 品质边框颜色（占位）。 */
+/** 品质颜色（对齐《美术设计规范.md》十、建筑品质颜色）。 */
 export const RARITY_COLOR: Record<BuildingRarity, number> = {
-  common: 0x9aa0a6,
-  uncommon: 0x4caf50,
-  rare: 0x2196f3,
-  epic: 0x9c27b0,
-  legendary: 0xff9800,
+  common: 0xbfc5ce, // 普通
+  uncommon: 0x56d364, // 优秀
+  rare: 0x3b82f6, // 稀有
+  epic: 0xa855f7, // 史诗
+  legendary: 0xf59e0b, // 传说
 };
 
 export const RARITY_LABEL: Record<BuildingRarity, string> = {

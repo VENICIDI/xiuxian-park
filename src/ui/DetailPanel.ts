@@ -6,7 +6,7 @@ import type { GameState } from "../game/models/game-state";
 import { nextUpgradeCost } from "../game/controllers/TurnController";
 import { occupantAt } from "../game/systems/PlacementSystem";
 import { effectiveSize } from "../game/models/building";
-import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
+import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
 import { Button } from "./Button";
 
 /** 建筑详情弹窗：升级 / 拆除。 */
@@ -50,9 +50,9 @@ export class DetailPanel {
     const ph = 360;
     const panel = this.scene.add.graphics().setDepth(DEPTH.modal + 1);
     panel.fillStyle(THEME.bgPanelLight, 1);
-    panel.fillRoundedRect(cx - pw / 2, cy - ph / 2, pw, ph, 16);
-    panel.lineStyle(2, THEME.accent, 0.6);
-    panel.strokeRoundedRect(cx - pw / 2, cy - ph / 2, pw, ph, 16);
+    panel.fillRoundedRect(cx - pw / 2, cy - ph / 2, pw, ph, RADIUS);
+    panel.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    panel.strokeRoundedRect(cx - pw / 2, cy - ph / 2, pw, ph, RADIUS);
     this.group.add(panel);
 
     this.addText(cx, cy - ph / 2 + 30, def.name, 26, THEME.textLight, true);
@@ -86,7 +86,7 @@ export class DetailPanel {
 
     const upBtn = new Button(this.scene, cx - 110, cy + ph / 2 - 44, upgradeLabel, {
       width: 190,
-      height: 48,
+      height: 50,
       onClick: () => {
         onUpgrade();
       },
@@ -97,9 +97,8 @@ export class DetailPanel {
 
     const rmBtn = new Button(this.scene, cx + 110, cy + ph / 2 - 44, "拆除(返还50%)", {
       width: 190,
-      height: 48,
-      color: 0x8b3a4a,
-      hoverColor: 0xa8485c,
+      height: 50,
+      variant: "danger",
       onClick: () => {
         onRemove();
       },

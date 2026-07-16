@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../config";
-import { FONT_FAMILY, THEME } from "../theme";
+import { FONT_FAMILY, RADIUS, THEME } from "../theme";
 import { SaveService } from "../services/SaveService";
 import { audio } from "../services/AudioService";
 import { Background } from "../rendering/Background";
@@ -15,14 +15,14 @@ export class MainMenuScene extends Phaser.Scene {
     const cx = DESIGN_WIDTH / 2;
 
     this.cameras.main.setBackgroundColor(THEME.bg);
-    this.cameras.main.fadeIn(320, 20, 16, 32);
-    new Background(this, { top: 0x1a1230, bottom: 0x2c1f48, motes: 22 });
+    this.cameras.main.fadeIn(320, 46, 35, 72);
+    new Background(this, { top: 0x2a2044, bottom: 0x3a2f5e, motes: 22 });
 
     const title = this.add
       .text(cx, 150, "修仙游乐园", {
         fontFamily: FONT_FAMILY,
         fontSize: "72px",
-        color: THEME.textLight,
+        color: THEME.textGold,
         fontStyle: "bold",
       })
       .setOrigin(0.5)
@@ -79,8 +79,7 @@ export class MainMenuScene extends Phaser.Scene {
       width: 240,
       height: 56,
       fontSize: 24,
-      color: 0x4a5568,
-      hoverColor: 0x5a6578,
+      variant: "secondary",
       onClick: () => this.showHelp(),
     });
 
@@ -101,7 +100,7 @@ export class MainMenuScene extends Phaser.Scene {
   private startGame(continueGame: boolean): void {
     audio.unlock();
     audio.startMusic();
-    this.cameras.main.fadeOut(280, 20, 16, 32);
+    this.cameras.main.fadeOut(280, 46, 35, 72);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start("Park", { continueGame });
     });
@@ -115,16 +114,16 @@ export class MainMenuScene extends Phaser.Scene {
       .setInteractive();
     const panel = this.add.graphics();
     panel.fillStyle(THEME.bgPanelLight, 1);
-    panel.fillRoundedRect(cx - 340, cy - 200, 680, 400, 16);
-    panel.lineStyle(2, THEME.accent, 0.6);
-    panel.strokeRoundedRect(cx - 340, cy - 200, 680, 400, 16);
+    panel.fillRoundedRect(cx - 340, cy - 200, 680, 400, RADIUS);
+    panel.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    panel.strokeRoundedRect(cx - 340, cy - 200, 680, 400, RADIUS);
 
     const text = [
       "【目标】撑过 15 天且灵石不为负，即可飞升通关。",
       "",
       "【流程】规划(摆放/升级) → 开始营业 → 观看结算 → 三选一 → 下一天。",
       "",
-      "【地图】蓝色是蜿蜒主路（不可建造），建筑放在路旁空地。主路多次折返，",
+      "【地图】浅色石板是蜿蜒主路（不可建造），建筑放在路旁草地。主路多次折返，",
       "越早被游客经过的空地越肥（钱包足/体力好），越靠后越瘦——选址即策略。",
       "【占地/旋转】建筑有不同占地尺寸；放置时按鼠标中键（或 R）旋转朝向。",
       "【赚钱】游客沿主路前行，光顾路旁相邻的游乐/商店消费；钱包与体力有限。",

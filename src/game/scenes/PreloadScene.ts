@@ -19,21 +19,23 @@ export class PreloadScene extends Phaser.Scene {
       .text(cx, cy - 40, "修仙游乐园", {
         fontFamily: FONT_FAMILY,
         fontSize: "48px",
-        color: THEME.textLight,
+        color: THEME.textGold,
         fontStyle: "bold",
       })
       .setOrigin(0.5);
 
     const barW = 420;
     const barBg = this.add.graphics();
-    barBg.fillStyle(0x000000, 0.4);
-    barBg.fillRoundedRect(cx - barW / 2, cy + 20, barW, 24, 8);
+    barBg.fillStyle(THEME.bgPanelLight, 1);
+    barBg.fillRoundedRect(cx - barW / 2, cy + 20, barW, 24, 12);
+    barBg.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    barBg.strokeRoundedRect(cx - barW / 2, cy + 20, barW, 24, 12);
     const bar = this.add.graphics();
 
     this.load.on("progress", (p: number) => {
       bar.clear();
-      bar.fillStyle(THEME.accent, 1);
-      bar.fillRoundedRect(cx - barW / 2 + 3, cy + 23, (barW - 6) * p, 18, 6);
+      bar.fillStyle(THEME.green, 1);
+      bar.fillRoundedRect(cx - barW / 2 + 3, cy + 23, (barW - 6) * p, 18, 8);
     });
 
     // 目前无外部资源，放一个极小的占位加载以驱动进度事件

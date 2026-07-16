@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { DESIGN_WIDTH } from "../config";
 import { BALANCE } from "../data/balance";
 import type { GameState } from "../models/game-state";
-import { FONT_FAMILY, THEME } from "../theme";
+import { FONT_FAMILY, RADIUS, THEME } from "../theme";
 import { SaveService } from "../services/SaveService";
 import { audio } from "../services/AudioService";
 import { Background } from "../rendering/Background";
@@ -23,12 +23,12 @@ export class ResultScene extends Phaser.Scene {
   create(): void {
     const cx = DESIGN_WIDTH / 2;
     this.cameras.main.setBackgroundColor(THEME.bg);
-    this.cameras.main.fadeIn(320, 20, 16, 32);
+    this.cameras.main.fadeIn(320, 46, 35, 72);
 
     const victory = this.state.statistics.failureReason == null;
     new Background(this, {
-      top: victory ? 0x1e1a3e : 0x241220,
-      bottom: victory ? 0x33285a : 0x361826,
+      top: victory ? 0x2a2044 : 0x3a2233,
+      bottom: victory ? 0x3a2f5e : 0x462a3a,
       motes: victory ? 26 : 8,
     });
     audio.playSfx(victory ? "win" : "lose");
@@ -68,10 +68,10 @@ export class ResultScene extends Phaser.Scene {
     const stats = this.state.statistics;
     const rows: Array<[string, string]> = [
       ["坚持天数", `${stats.daysSurvived} 天`],
-      ["累计总收入", `◈ ${stats.totalRevenue}`],
-      ["单日最高收入", `◈ ${stats.bestDayRevenue}`],
+      ["累计总收入", `💰 ${stats.totalRevenue}`],
+      ["单日最高收入", `💰 ${stats.bestDayRevenue}`],
       ["最高连携（单游客消费）", `${stats.bestCombo} 次`],
-      ["剩余灵石", `◈ ${this.state.spiritStones}`],
+      ["剩余灵石", `💰 ${this.state.spiritStones}`],
       ["随机种子", `${this.state.seed}`],
     ];
 
@@ -79,9 +79,9 @@ export class ResultScene extends Phaser.Scene {
     const startY = 270;
     const g = this.add.graphics();
     g.fillStyle(THEME.bgPanel, 1);
-    g.fillRoundedRect(cx - panelW / 2, startY - 20, panelW, rows.length * 40 + 30, 14);
-    g.lineStyle(2, THEME.accent, 0.4);
-    g.strokeRoundedRect(cx - panelW / 2, startY - 20, panelW, rows.length * 40 + 30, 14);
+    g.fillRoundedRect(cx - panelW / 2, startY - 20, panelW, rows.length * 40 + 30, RADIUS);
+    g.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    g.strokeRoundedRect(cx - panelW / 2, startY - 20, panelW, rows.length * 40 + 30, RADIUS);
 
     rows.forEach(([k, v], i) => {
       const y = startY + i * 40;
@@ -114,8 +114,7 @@ export class ResultScene extends Phaser.Scene {
       width: 220,
       height: 54,
       fontSize: 22,
-      color: 0x4a5568,
-      hoverColor: 0x5a6578,
+      variant: "secondary",
       onClick: () => {
         SaveService.clear();
         this.transitionTo("MainMenu");
@@ -139,7 +138,7 @@ export class ResultScene extends Phaser.Scene {
   }
 
   private transitionTo(key: string, data?: object): void {
-    this.cameras.main.fadeOut(280, 20, 16, 32);
+    this.cameras.main.fadeOut(280, 46, 35, 72);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start(key, data);
     });

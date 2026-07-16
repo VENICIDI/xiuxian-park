@@ -1,15 +1,23 @@
 import Phaser from "phaser";
 import { getBuildingDef } from "../game/data/buildings";
 import { RARITY_COLOR, RARITY_LABEL } from "../game/models/building";
+import type { BuildingCategory } from "../game/models/building";
 import type { GameState } from "../game/models/game-state";
-import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
-import { PANEL_W, PANEL_X, PANEL_Y } from "../game/rendering/layout";
+import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
+import { PANEL_H, PANEL_W, PANEL_X, PANEL_Y } from "../game/rendering/layout";
 
-const LIST_TOP = PANEL_Y + 44;
-const LIST_HEIGHT = 500;
-const ROW_H = 66;
+const LIST_TOP = PANEL_Y + 48;
+const LIST_HEIGHT = PANEL_H - 56;
+const ROW_H = 76;
 
-/** 右侧建筑手牌/图鉴面板，点击进入放置模式。 */
+const CAT_GLYPH: Record<BuildingCategory, string> = {
+  ride: "🎢",
+  shop: "🛍",
+  buff: "✨",
+  utility: "⚙",
+};
+
+/** 右侧建筑手牌/图鉴面板（规范七：左图右文 + 品质竖条）。 */
 export class CatalogPanel {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
@@ -25,12 +33,12 @@ export class CatalogPanel {
 
     const bg = scene.add.graphics().setDepth(DEPTH.panel);
     bg.fillStyle(THEME.bgPanel, 1);
-    bg.fillRoundedRect(PANEL_X, PANEL_Y, PANEL_W, LIST_HEIGHT + 52, 12);
-    bg.lineStyle(2, THEME.accent, 0.35);
-    bg.strokeRoundedRect(PANEL_X, PANEL_Y, PANEL_W, LIST_HEIGHT + 52, 12);
+    bg.fillRoundedRect(PANEL_X, PANEL_Y, PANEL_W, LIST_HEIGHT + 56, RADIUS);
+    bg.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    bg.strokeRoundedRect(PANEL_X, PANEL_Y, PANEL_W, LIST_HEIGHT + 56, RADIUS);
 
     scene.add
-      .text(PANEL_X + 16, PANEL_Y + 12, "建筑图鉴（点击后到棋盘放置）", {
+      .text(PANEL_X + 18, PANEL_Y + 14, "建筑图鉴 · 点击后到棋盘放置", {
         fontFamily: FONT_FAMILY,
         fontSize: "16px",
         color: THEME.textLight,
@@ -43,7 +51,6 @@ export class CatalogPanel {
     mask.fillRect(PANEL_X, LIST_TOP, PANEL_W, LIST_HEIGHT);
     this.container.setMask(mask.createGeometryMask());
 
-    // 滚轮滚动
     scene.input.on(
       "wheel",
       (
@@ -95,44 +102,64 @@ export class CatalogPanel {
   private createRow(id: string, state: GameState): Phaser.GameObjects.Container {
     const def = getBuildingDef(id);
     const w = PANEL_W - 24;
+    const rh = ROW_H - 10;
     const row = this.scene.add.container(PANEL_X + 12, 0);
 
     const bg = this.scene.add.graphics();
     row.add(bg);
     (row as unknown as { _bg: Phaser.GameObjects.Graphics })._bg = bg;
 
-    // 品质色条
+    // 品质竖条（规范七）
     const bar = this.scene.add.graphics();
     bar.fillStyle(RARITY_COLOR[def.rarity], 1);
-    bar.fillRoundedRect(0, 6, 6, ROW_H - 16, 3);
+    bar.fillRoundedRect(6, 10, 6, rh - 20, 3);
     row.add(bar);
 
-    const name = this.scene.add.text(18, 8, def.name, {
-      fontFamily: FONT_FAMILY,
-      fontSize: "17px",
-      color: THEME.textLight,
-      fontStyle: "bold",
-    });
-    row.add(name);
-
-    const meta = this.scene.add.text(
-      18,
-      30,
-      `${RARITY_LABEL[def.rarity]} · ${this.catName(def.category)} · 占地${def.size.w}×${def.size.h}`,
-      { fontFamily: FONT_FAMILY, fontSize: "12px", color: THEME.accentText },
+    // 左侧图标块（左图）
+    const iconBox = this.scene.add.graphics();
+    iconBox.fillStyle(def.color, 1);
+    iconBox.fillRoundedRect(20, 12, rh - 24, rh - 24, 12);
+    iconBox.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    iconBox.strokeRoundedRect(20, 12, rh - 24, rh - 24, 12);
+    row.add(iconBox);
+    row.add(
+      this.scene.add
+        .text(20 + (rh - 24) / 2, 12 + (rh - 24) / 2, CAT_GLYPH[def.category], {
+          fontFamily: FONT_FAMILY,
+          fontSize: "26px",
+        })
+        .setOrigin(0.5),
     );
-    row.add(meta);
 
-    const desc = this.scene.add.text(18, 46, def.description, {
-      fontFamily: FONT_FAMILY,
-      fontSize: "11px",
-      color: THEME.textDim,
-      wordWrap: { width: w - 110 },
-    });
-    row.add(desc);
+    // 右侧文字
+    const tx = rh + 6;
+    row.add(
+      this.scene.add.text(tx, 10, def.name, {
+        fontFamily: FONT_FAMILY,
+        fontSize: "17px",
+        color: THEME.textLight,
+        fontStyle: "bold",
+      }),
+    );
+    row.add(
+      this.scene.add.text(
+        tx,
+        32,
+        `${RARITY_LABEL[def.rarity]} · ${this.catName(def.category)} · ${def.size.w}×${def.size.h}`,
+        { fontFamily: FONT_FAMILY, fontSize: "12px", color: THEME.accentText },
+      ),
+    );
+    row.add(
+      this.scene.add.text(tx, 50, def.description, {
+        fontFamily: FONT_FAMILY,
+        fontSize: "11px",
+        color: THEME.textDim,
+        wordWrap: { width: w - tx - 84 },
+      }),
+    );
 
     const cost = this.scene.add
-      .text(w - 12, 12, `◈ ${def.baseCost}`, {
+      .text(w - 12, 12, `💰 ${def.baseCost}`, {
         fontFamily: FONT_FAMILY,
         fontSize: "18px",
         color: THEME.textGold,
@@ -142,9 +169,9 @@ export class CatalogPanel {
     row.add(cost);
     (row as unknown as { _cost: Phaser.GameObjects.Text })._cost = cost;
 
-    row.setSize(w, ROW_H - 8);
+    row.setSize(w, rh);
     row.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, w, ROW_H - 8),
+      new Phaser.Geom.Rectangle(0, 0, w, rh),
       Phaser.Geom.Rectangle.Contains,
     );
     row.on("pointerdown", () => {
@@ -168,21 +195,20 @@ export class CatalogPanel {
 
   private updateSelectionVisuals(state: GameState): void {
     const w = PANEL_W - 24;
+    const rh = ROW_H - 10;
     for (const [id, row] of this.rows) {
       const def = getBuildingDef(id);
       const affordable = state.spiritStones >= def.baseCost;
       const selected = id === this.selectedId;
       const bg = (row as unknown as { _bg: Phaser.GameObjects.Graphics })._bg;
       bg.clear();
-      bg.fillStyle(selected ? THEME.accent : THEME.bgPanelLight, selected ? 0.9 : 1);
-      bg.fillRoundedRect(0, 0, w, ROW_H - 8, 8);
-      if (selected) {
-        bg.lineStyle(2, 0xffd54f, 1);
-        bg.strokeRoundedRect(0, 0, w, ROW_H - 8, 8);
-      }
+      bg.fillStyle(selected ? THEME.purple : THEME.bgPanelLight, selected ? 0.85 : 1);
+      bg.fillRoundedRect(0, 0, w, rh, RADIUS);
+      bg.lineStyle(2, selected ? THEME.gold : THEME.stroke, selected ? 1 : THEME.strokeAlpha);
+      bg.strokeRoundedRect(0, 0, w, rh, RADIUS);
       row.setAlpha(affordable && state.phase === "planning" ? 1 : 0.45);
       const cost = (row as unknown as { _cost: Phaser.GameObjects.Text })._cost;
-      cost.setColor(affordable ? THEME.textGold : "#ff6b81");
+      cost.setColor(affordable ? THEME.textGold : THEME.danger);
     }
   }
 }

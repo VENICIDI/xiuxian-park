@@ -23,7 +23,27 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, PreloadScene, MainMenuScene, ParkScene, ResultScene],
 };
 
-const game = new Phaser.Game(config);
+/**
+ * 等待推荐字体（HarmonyOS Sans SC）就绪后再创建游戏，避免 Phaser Canvas 文本
+ * 以系统字体绘制后无法刷新。离线或加载超时则回退系统字体照常启动。
+ */
+async function waitForFonts(): Promise<void> {
+  const fontset = (document as Document & { fonts?: FontFaceSet }).fonts;
+  if (!fontset) return;
+  try {
+    await Promise.race([
+      Promise.all([
+        fontset.load('16px "HarmonyOS Sans SC"'),
+        fontset.load('bold 16px "HarmonyOS Sans SC"'),
+      ]),
+      new Promise((resolve) => setTimeout(resolve, 2500)),
+    ]);
+  } catch {
+    /* 忽略：回退到 FONT_FAMILY 中的系统字体 */
+  }
+}
+
+const gamePromise = waitForFonts().then(() => new Phaser.Game(config));
 
 // 页面隐藏时暂停音频（不改变已计算结果）
 document.addEventListener("visibilitychange", () => {
@@ -43,4 +63,4 @@ const unlock = () => {
 window.addEventListener("pointerdown", unlock);
 window.addEventListener("keydown", unlock);
 
-export default game;
+export default gamePromise;

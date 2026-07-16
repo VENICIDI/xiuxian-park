@@ -2,7 +2,15 @@ import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../game/config";
 import { getBuildingDef } from "../game/data/buildings";
 import { RARITY_COLOR, RARITY_LABEL } from "../game/models/building";
-import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
+import type { BuildingCategory } from "../game/models/building";
+import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
+
+const CAT_GLYPH: Record<BuildingCategory, string> = {
+  ride: "🎢",
+  shop: "🛍",
+  buff: "✨",
+  utility: "⚙",
+};
 
 /** 每日结束三选一。 */
 export class DraftModal {
@@ -63,17 +71,27 @@ export class DraftModal {
     const draw = (hover: boolean) => {
       bg.clear();
       bg.fillStyle(hover ? THEME.bgPanelLight : THEME.bgPanel, 1);
-      bg.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
+      bg.fillRoundedRect(-w / 2, -h / 2, w, h, RADIUS);
       bg.lineStyle(4, RARITY_COLOR[def.rarity], 1);
-      bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+      bg.strokeRoundedRect(-w / 2, -h / 2, w, h, RADIUS);
     };
     draw(false);
     container.add(bg);
 
     const swatch = this.scene.add.graphics();
     swatch.fillStyle(def.color, 1);
-    swatch.fillRoundedRect(-50, -h / 2 + 30, 100, 100, 12);
+    swatch.fillRoundedRect(-50, -h / 2 + 30, 100, 100, RADIUS);
+    swatch.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    swatch.strokeRoundedRect(-50, -h / 2 + 30, 100, 100, RADIUS);
     container.add(swatch);
+    container.add(
+      this.scene.add
+        .text(0, -h / 2 + 80, CAT_GLYPH[def.category], {
+          fontFamily: FONT_FAMILY,
+          fontSize: "48px",
+        })
+        .setOrigin(0.5),
+    );
 
     container.add(
       this.scene.add
@@ -87,10 +105,11 @@ export class DraftModal {
     );
     container.add(
       this.scene.add
-        .text(0, -h / 2 + 180, `${RARITY_LABEL[def.rarity]} · ◈${def.baseCost}`, {
+        .text(0, -h / 2 + 180, `${RARITY_LABEL[def.rarity]} · 💰${def.baseCost}`, {
           fontFamily: FONT_FAMILY,
           fontSize: "15px",
-          color: THEME.accentText,
+          color: THEME.textGold,
+          fontStyle: "bold",
         })
         .setOrigin(0.5),
     );

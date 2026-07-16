@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../config";
+import { PALETTE } from "../theme";
 
 export type BackgroundOptions = {
   top?: number;
@@ -8,11 +9,11 @@ export type BackgroundOptions = {
   motes?: number;
 };
 
-/** 氛围背景：渐变天空 + 远山剪影 + 漂浮灵气光点。纯装饰。 */
+/** 氛围背景（软紫 + 玉绿基调）：渐变天空 + 远山剪影 + 漂浮灵气光点。纯装饰。 */
 export class Background {
   constructor(scene: Phaser.Scene, opts: BackgroundOptions = {}) {
-    const top = opts.top ?? 0x171226;
-    const bottom = opts.bottom ?? 0x241a3d;
+    const top = opts.top ?? 0x2a2044;
+    const bottom = opts.bottom ?? PALETTE.bgAlt;
     const motes = opts.motes ?? 16;
 
     const sky = scene.add.graphics().setDepth(-20);
@@ -27,7 +28,7 @@ export class Background {
           120 + i * 90,
           "glow",
         )
-        .setTint(0x8e6bd6)
+        .setTint(PALETTE.purple)
         .setAlpha(0.06)
         .setScale(22, 5)
         .setDepth(-18);
@@ -49,7 +50,7 @@ export class Background {
       const y = Phaser.Math.Between(60, DESIGN_HEIGHT);
       const mote = scene.add
         .image(x, y, "spark")
-        .setTint(Phaser.Math.RND.pick([0xc9a8ff, 0xa8ffd0, 0xffe082]))
+        .setTint(Phaser.Math.RND.pick([PALETTE.purple, PALETTE.green, PALETTE.gold, PALETTE.blue]))
         .setAlpha(Phaser.Math.FloatBetween(0.15, 0.5))
         .setScale(Phaser.Math.FloatBetween(0.3, 0.8))
         .setDepth(-16)

@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { DEPTH, FONT_FAMILY } from "../theme";
+import { DEPTH, FONT_FAMILY, PALETTE } from "../theme";
 
 /**
  * 集中管理表现层"juice"特效：金币迸射、尘土、星花、雷电、飘字、镜头震动。
@@ -40,7 +40,7 @@ export class Fx {
 
     this.spark = scene.add
       .particles(0, 0, "spark", {
-        tint: [0xffffff, 0xffe082, 0xa8ffd0],
+        tint: [PALETTE.green, PALETTE.gold, PALETTE.blue],
         speed: { min: 40, max: 140 },
         lifespan: 650,
         scale: { start: 1, end: 0 },
@@ -128,6 +128,41 @@ export class Fx {
       ease: "Cubic.easeOut",
       onComplete: () => t.destroy(),
     });
+  }
+
+  /** 赚钱数字：黄色向上飘（规范十四）。 */
+  gain(x: number, y: number, amount: number, size = 20): void {
+    this.floatText(x, y - 8, `+${amount}`, "#ffd45c", size);
+  }
+
+  /** Buff 数字：绿色向上飘（规范十四）。 */
+  buffText(x: number, y: number, text: string): void {
+    this.floatText(x, y - 8, text, "#7fd37b", 18);
+  }
+
+  /** 失败/扣钱数字：红色向上飘（规范十四）。 */
+  loss(x: number, y: number, amount: number): void {
+    this.floatText(x, y - 8, `-${amount}`, "#ff6767", 20);
+  }
+
+  /** 灵气扩散（规范十五：放置后灵气外扩）。 */
+  qiSpread(x: number, y: number): void {
+    const ring = this.scene.add
+      .image(x, y, "ring")
+      .setTint(PALETTE.green)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(0.3)
+      .setAlpha(0.9)
+      .setDepth(DEPTH.fx + 1);
+    this.scene.tweens.add({
+      targets: ring,
+      scale: 3.6,
+      alpha: 0,
+      duration: 480,
+      ease: "Cubic.easeOut",
+      onComplete: () => ring.destroy(),
+    });
+    this.sparkle(x, y);
   }
 
   shake(duration = 140, intensity = 0.004): void {

@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { getBuildingDef } from "../data/buildings";
 import type { GameState } from "../models/game-state";
-import { DEPTH, FONT_FAMILY, THEME } from "../theme";
+import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../theme";
 import {
   applyDraft,
   createNewGame,
@@ -23,6 +23,10 @@ import { AnimationPlayer } from "../rendering/AnimationPlayer";
 import { Background } from "../rendering/Background";
 import { Fx } from "../rendering/Fx";
 import {
+  BAR_H,
+  BAR_W,
+  BAR_X,
+  BAR_Y,
   PLAY_X,
   PLAY_Y,
   PLAY_W,
@@ -83,7 +87,7 @@ export class ParkScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor(THEME.bg);
-    this.cameras.main.fadeIn(280, 20, 16, 32);
+    this.cameras.main.fadeIn(280, 46, 35, 72);
 
     new Background(this, { motes: 14 });
     this.board = new BoardView(this);
@@ -125,44 +129,47 @@ export class ParkScene extends Phaser.Scene {
 
   // ————————————————— UI 底栏 —————————————————
   private buildBottomBar(): void {
-    const barY = 680;
+    const barCy = BAR_Y + BAR_H / 2;
     const g = this.add.graphics().setDepth(DEPTH.hud - 1);
     g.fillStyle(THEME.bgPanel, 1);
-    g.fillRect(0, 648, 748, 72);
+    g.fillRoundedRect(BAR_X, BAR_Y, BAR_W, BAR_H, RADIUS);
+    g.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    g.strokeRoundedRect(BAR_X, BAR_Y, BAR_W, BAR_H, RADIUS);
+
+    const startX = BAR_X + BAR_W - 115;
 
     this.hintText = this.add
-      .text(24, 658, "", {
+      .text(BAR_X + 18, BAR_Y + 10, "", {
         fontFamily: FONT_FAMILY,
-        fontSize: "14px",
+        fontSize: "13px",
         color: THEME.textDim,
-        wordWrap: { width: 420 },
+        wordWrap: { width: BAR_W - 320 },
       })
       .setDepth(DEPTH.hud);
 
-    this.startBtn = new Button(this, 620, barY, "开始营业", {
+    this.startBtn = new Button(this, startX, barCy, "开始营业", {
       width: 200,
-      height: 52,
-      fontSize: 22,
-      color: 0x2e8b57,
-      hoverColor: 0x39a869,
+      height: 46,
+      fontSize: 20,
+      variant: "primary",
       onClick: () => this.onStartBusiness(),
     });
     this.startBtn.setDepth(DEPTH.hud);
 
-    this.speedBtn = new Button(this, 470, barY, "速度 1×", {
+    this.speedBtn = new Button(this, startX - 170, barCy, "速度 1×", {
       width: 120,
-      height: 46,
+      height: 44,
       fontSize: 18,
+      variant: "secondary",
       onClick: () => this.toggleSpeed(),
     });
     this.speedBtn.setDepth(DEPTH.hud).setVisible(false);
 
-    this.skipBtn = new Button(this, 620, barY, "跳过", {
+    this.skipBtn = new Button(this, startX, barCy, "跳过", {
       width: 120,
-      height: 46,
+      height: 44,
       fontSize: 18,
-      color: 0x8b3a4a,
-      hoverColor: 0xa8485c,
+      variant: "danger",
       onClick: () => this.anim.skip(),
     });
     this.skipBtn.setDepth(DEPTH.hud).setVisible(false);
@@ -285,8 +292,9 @@ export class ParkScene extends Phaser.Scene {
       }
       const px = sx / cells.length;
       const py = sy / cells.length;
+      // 放置反馈（规范十五）：POP 由 BoardView 弹入 + 灵气扩散
       this.fx.dustPuff(px, py + 20);
-      this.fx.sparkle(px, py);
+      this.fx.qiSpread(px, py);
       this.fx.shake(90, 0.003);
       this.board.refresh(this.state);
       this.board.clearHighlight();
@@ -386,7 +394,7 @@ export class ParkScene extends Phaser.Scene {
 
   private goResult(): void {
     this.autosave();
-    this.cameras.main.fadeOut(300, 20, 16, 32);
+    this.cameras.main.fadeOut(300, 46, 35, 72);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start("Result", { state: this.state });
     });
@@ -394,9 +402,17 @@ export class ParkScene extends Phaser.Scene {
 
   // ————————————————— 特效 —————————————————
   private spawnCoin(x: number, y: number, amount: number, thunder: boolean): void {
-    const color = thunder ? "#e1bee7" : THEME.textGold;
-    this.fx.floatText(x, y - 8, `+${amount}`, color, thunder ? 22 : 18);
+    // 赚钱数字：黄色向上飘（规范十四/十六：地图持续"活着"）
+    if (thunder) {
+      this.fx.floatText(x, y - 8, `+${amount}`, "#b79dff", 22);
+    } else {
+      this.fx.gain(x, y, amount, 18);
+    }
     this.fx.coinBurst(x, y);
+    // 偶尔冒出满意表情，强化营业反馈循环
+    if (Phaser.Math.Between(0, 3) === 0) {
+      this.fx.floatText(x + Phaser.Math.Between(-14, 14), y - 22, "😊", "#7fd37b", 16);
+    }
 
     if (thunder) {
       this.fx.thunderBolt(x, y);

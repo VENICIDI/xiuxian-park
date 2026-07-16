@@ -18,7 +18,7 @@ import {
 const ISO_DEPTH_BASE = 10;
 const ISO_DEPTH_STEP = 1.2;
 
-/** 等距棋盘与建筑的渲染层。 */
+/** 45° 等距棋盘与 3D 建筑的渲染层（草地 + 立体建筑）。 */
 export class BoardView {
   private scene: Phaser.Scene;
   private gridGfx: Phaser.GameObjects.Graphics;
@@ -31,6 +31,7 @@ export class BoardView {
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.gridGfx = scene.add.graphics().setDepth(DEPTH.board);
+    // 高亮/预览需盖在建筑（等距深度最高约 24）之上、HUD（40）之下
     this.overlayGfx = scene.add.graphics().setDepth(27);
     this.highlightGfx = scene.add.graphics().setDepth(28);
     this.drawGrid();
@@ -51,23 +52,23 @@ export class BoardView {
       const d = cellDiamond(i);
       if (isRoad(i)) {
         this.fillDiamond(g, d, THEME.road, 1);
-        this.strokeDiamond(g, d, 0x6a8bc0, 0.5, 1);
+        this.strokeDiamond(g, d, THEME.roadEdge, 0.7, 1);
       } else {
-        this.fillDiamond(g, d, even ? THEME.tileEven : THEME.tileOdd, 1);
-        this.strokeDiamond(g, d, THEME.gridLine, 0.5, 1);
+        this.fillDiamond(g, d, even ? THEME.grassA : THEME.grassB, 1);
+        this.strokeDiamond(g, d, THEME.grassLine, 0.5, 1);
       }
     }
 
-    // 底板顶面外缘描一圈亮边，强调台面
+    // 底板顶面外缘描一圈（半透明白，规范：不用纯白）
     const outer = {
       top: isoCorner(0, 0),
       right: isoCorner(GRID_WIDTH, 0),
       bottom: isoCorner(GRID_WIDTH, GRID_HEIGHT),
       left: isoCorner(0, GRID_HEIGHT),
     };
-    this.strokeDiamond(g, outer, 0x5b4d84, 0.9, 2);
+    this.strokeDiamond(g, outer, THEME.stroke, THEME.strokeAlpha, 2);
 
-    // 路线连线（外发光 + 亮线）
+    // 路线连线（浅色石板路的连贯高光）
     const strokeRoute = (width: number, color: number, alpha: number) => {
       g.lineStyle(width, color, alpha);
       g.beginPath();
@@ -78,15 +79,15 @@ export class BoardView {
       });
       g.strokePath();
     };
-    strokeRoute(14, 0x5b7fb8, 0.2);
-    strokeRoute(7, 0x7fa5df, 0.5);
-    strokeRoute(2.5, 0xcfe0ff, 0.7);
+    strokeRoute(14, THEME.roadEdge, 0.25);
+    strokeRoute(6, 0xf4ead0, 0.5);
+    strokeRoute(2, 0xfff6df, 0.7);
 
-    this.drawMarker(ENTRANCE_INDEX, THEME.entrance, "入口");
-    this.drawMarker(EXIT_INDEX, THEME.exit, "出口");
+    this.drawMarker(ENTRANCE_INDEX, THEME.green, "入口");
+    this.drawMarker(EXIT_INDEX, THEME.red, "出口");
   }
 
-  /** 园区底板：在地面菱形下方拉出两片侧壁，形成厚石台。 */
+  /** 园区底板：在地面菱形下方拉出两片侧壁，形成厚土台。 */
   private drawBaseSlab(g: Phaser.GameObjects.Graphics): void {
     const D = 54; // 底板厚度
     const right = isoCorner(GRID_WIDTH, 0);
@@ -94,21 +95,21 @@ export class BoardView {
     const left = isoCorner(0, GRID_HEIGHT);
     const down = (p: Pt): Pt => ({ x: p.x, y: p.y + D });
 
-    // 左前侧壁（西南面，较暗）
-    g.fillStyle(0x0d0a18, 1);
+    // 左前侧壁（西南面，较暗——泥土色）
+    g.fillStyle(0x4a3a2a, 1);
     this.poly(g, [left, bottom, down(bottom), down(left)]);
     // 右前侧壁（东南面，稍亮）
-    g.fillStyle(0x171130, 1);
+    g.fillStyle(0x5c4a34, 1);
     this.poly(g, [bottom, right, down(right), down(bottom)]);
     // 底缘描边
-    g.lineStyle(2, 0x2e2447, 0.9);
+    g.lineStyle(2, 0x2f2418, 0.9);
     g.beginPath();
     g.moveTo(down(left).x, down(left).y);
     g.lineTo(down(bottom).x, down(bottom).y);
     g.lineTo(down(right).x, down(right).y);
     g.strokePath();
     // 侧壁竖棱
-    g.lineStyle(1.5, 0x2e2447, 0.7);
+    g.lineStyle(1.5, 0x2f2418, 0.7);
     g.beginPath();
     g.moveTo(bottom.x, bottom.y);
     g.lineTo(down(bottom).x, down(bottom).y);
@@ -153,14 +154,15 @@ export class BoardView {
   private drawMarker(index: number, color: number, label: string): void {
     const c = cellCenter(index);
     const d = cellDiamond(index);
-    this.fillDiamond(this.gridGfx, d, color, 0.45);
+    this.fillDiamond(this.gridGfx, d, color, 0.4);
+    this.strokeDiamond(this.gridGfx, d, color, 0.9, 2);
     this.scene.add
       .text(c.x, c.y - 6, label, {
         fontFamily: FONT_FAMILY,
         fontSize: "12px",
         color: THEME.textLight,
         fontStyle: "bold",
-        stroke: "#1a1226",
+        stroke: "#241b3a",
         strokeThickness: 3,
       })
       .setOrigin(0.5)
@@ -253,12 +255,12 @@ export class BoardView {
     box.lineTo(front.x, front.y);
     box.lineTo(right.x, right.y);
     box.strokePath();
-    // 屋顶品质描边
-    box.lineStyle(2, rarityColor, 0.95);
+    // 屋顶品质描边（规范：品质决定描边色）
+    box.lineStyle(2.5, rarityColor, 0.95);
     this.strokePoly(box, [rBack, rRight, rFront, rLeft]);
     container.add(box);
 
-    // 品质发光（宝品及以上）
+    // 品质发光（稀有及以上）
     if (def.rarity === "rare" || def.rarity === "epic" || def.rarity === "legendary") {
       const halo = this.scene.add
         .image(0, -H, "glow")
@@ -289,10 +291,10 @@ export class BoardView {
       .text(0, -H + 15, def.name, {
         fontFamily: FONT_FAMILY,
         fontSize: "11px",
-        color: "#faf6ff",
+        color: "#ffffff",
         fontStyle: "bold",
         align: "center",
-        stroke: "#1a1226",
+        stroke: "#241b3a",
         strokeThickness: 3,
         wordWrap: { width: eff.w * 80 },
       })
@@ -304,7 +306,9 @@ export class BoardView {
       .text(rLeft.x + 6, rLeft.y - 2, "★".repeat(inst.level), {
         fontFamily: FONT_FAMILY,
         fontSize: "11px",
-        color: "#ffd54f",
+        color: "#ffd45c",
+        stroke: "#241b3a",
+        strokeThickness: 2,
       })
       .setOrigin(0, 1);
     container.add(stars);
@@ -315,9 +319,9 @@ export class BoardView {
         .text(0, -H, "停业", {
           fontFamily: FONT_FAMILY,
           fontSize: "15px",
-          color: "#ff6b81",
+          color: THEME.danger,
           fontStyle: "bold",
-          stroke: "#1a1226",
+          stroke: "#241b3a",
           strokeThickness: 4,
         })
         .setOrigin(0.5);
@@ -354,17 +358,25 @@ export class BoardView {
       }
     }
 
-    // 新建筑弹入
+    // 新建筑弹入 POP（规范十五：0.8 → 1.05 → 1）
     if (!this.seen.has(inst.instanceId)) {
       this.seen.add(inst.instanceId);
-      container.setScale(0.5);
-      container.setAlpha(disabled ? 0 : 0.2);
+      container.setScale(0.8);
+      container.setAlpha(disabled ? 0 : 0.3);
       this.scene.tweens.add({
         targets: container,
-        scale: 1,
+        scale: 1.05,
         alpha: disabled ? 0.55 : 1,
-        duration: 320,
-        ease: "Back.easeOut",
+        duration: 180,
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          this.scene.tweens.add({
+            targets: container,
+            scale: 1,
+            duration: 120,
+            ease: "Quad.easeInOut",
+          });
+        },
       });
     }
   }
@@ -401,7 +413,7 @@ export class BoardView {
       case "shop":
         return "🛍";
       case "buff":
-        return "✦";
+        return "✨";
       default:
         return "⚙";
     }
@@ -456,6 +468,6 @@ export class BoardView {
     this.overlayGfx.clear();
     if (index < 0) return;
     const d = cellDiamond(index);
-    this.strokeDiamond(this.overlayGfx, d, 0xffd54f, 1, 3);
+    this.strokeDiamond(this.overlayGfx, d, THEME.gold, 1, 3);
   }
 }

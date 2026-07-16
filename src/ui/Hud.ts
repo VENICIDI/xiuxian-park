@@ -3,9 +3,12 @@ import { DESIGN_WIDTH } from "../game/config";
 import { BALANCE } from "../game/data/balance";
 import { getDailyEvent } from "../game/data/daily-events";
 import type { GameState } from "../game/models/game-state";
-import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
+import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
+import { HUD_H } from "../game/rendering/layout";
 
-/** 顶部 HUD：天数、灵石、游客数、当前事件。 */
+const BAR_H = HUD_H;
+
+/** 顶部 HUD（规范十三/十九 Layer7）：天数、灵石、今日游客、当前事件。 */
 export class Hud {
   private scene: Phaser.Scene;
   private dayText: Phaser.GameObjects.Text;
@@ -20,71 +23,57 @@ export class Hud {
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     const g = scene.add.graphics().setDepth(DEPTH.hud);
-    g.fillGradientStyle(THEME.bgPanelLight, THEME.bgPanelLight, THEME.bgPanel, THEME.bgPanel, 1);
-    g.fillRect(0, 0, DESIGN_WIDTH, 80);
-    g.lineStyle(2, THEME.accent, 0.5);
-    g.lineBetween(0, 80, DESIGN_WIDTH, 80);
-    g.lineStyle(1, 0xc9a8ff, 0.25);
-    g.lineBetween(0, 82, DESIGN_WIDTH, 82);
+    g.fillStyle(THEME.bgPanel, 1);
+    g.fillRect(0, 0, DESIGN_WIDTH, BAR_H);
+    g.fillStyle(THEME.purple, 0.9);
+    g.fillRect(0, BAR_H - 3, DESIGN_WIDTH, 3);
 
-    const mk = (x: number, label: string, color: string = THEME.textGold) => {
-      scene.add
-        .text(x, 16, label, {
-          fontFamily: FONT_FAMILY,
-          fontSize: "13px",
-          color: THEME.textDim,
-        })
-        .setDepth(DEPTH.hud);
-      return scene.add
-        .text(x, 34, "", {
-          fontFamily: FONT_FAMILY,
-          fontSize: "26px",
-          color,
-          fontStyle: "bold",
-        })
-        .setDepth(DEPTH.hud);
-    };
+    // 状态胶囊
+    this.chip(g, 20, 132, THEME.blue);
+    this.chip(g, 168, 176, THEME.gold);
+    this.chip(g, 360, 176, THEME.green);
 
-    this.dayText = mk(24, "天数", THEME.textLight);
-    this.stoneText = mk(180, "灵石", THEME.textGold);
-    this.visitorText = mk(360, "今日游客", "#7ce0a3");
+    this.dayText = this.stat(scene, 20, "📅 天数", THEME.textLight);
+    this.stoneText = this.stat(scene, 168, "💰 灵石", THEME.textGold);
+    this.visitorText = this.stat(scene, 360, "🙂 今日游客", THEME.success);
 
     this.eventTitle = scene.add
-      .text(560, 16, "", {
+      .text(576, 12, "", {
         fontFamily: FONT_FAMILY,
         fontSize: "16px",
         color: THEME.accentText,
         fontStyle: "bold",
       })
-      .setDepth(DEPTH.hud);
+      .setDepth(DEPTH.hud + 1);
     this.eventDesc = scene.add
-      .text(560, 40, "", {
+      .text(576, 36, "", {
         fontFamily: FONT_FAMILY,
-        fontSize: "14px",
+        fontSize: "13px",
         color: THEME.textDim,
-        wordWrap: { width: DESIGN_WIDTH - 580 },
+        wordWrap: { width: DESIGN_WIDTH - 600 },
       })
-      .setDepth(DEPTH.hud);
+      .setDepth(DEPTH.hud + 1);
 
     this.toast = scene.add
-      .text(DESIGN_WIDTH / 2, 100, "", {
+      .text(DESIGN_WIDTH / 2, 108, "", {
         fontFamily: FONT_FAMILY,
         fontSize: "20px",
         color: THEME.textLight,
-        backgroundColor: "#000000aa",
-        padding: { x: 14, y: 8 },
+        backgroundColor: "#241b3add",
+        padding: { x: 16, y: 10 },
+        fontStyle: "bold",
       })
       .setOrigin(0.5)
       .setDepth(DEPTH.tooltip)
       .setAlpha(0);
 
     this.banner = scene.add
-      .text(DESIGN_WIDTH / 2, 260, "", {
+      .text(DESIGN_WIDTH / 2, 280, "", {
         fontFamily: FONT_FAMILY,
         fontSize: "48px",
         color: THEME.textGold,
         fontStyle: "bold",
-        stroke: "#1a1226",
+        stroke: "#241b3a",
         strokeThickness: 6,
       })
       .setOrigin(0.5)
@@ -92,10 +81,45 @@ export class Hud {
       .setAlpha(0);
   }
 
+  private chip(
+    g: Phaser.GameObjects.Graphics,
+    x: number,
+    w: number,
+    accent: number,
+  ): void {
+    g.fillStyle(THEME.bgPanelLight, 1);
+    g.fillRoundedRect(x - 6, 8, w, BAR_H - 16, RADIUS);
+    g.lineStyle(2, accent, 0.5);
+    g.strokeRoundedRect(x - 6, 8, w, BAR_H - 16, RADIUS);
+  }
+
+  private stat(
+    scene: Phaser.Scene,
+    x: number,
+    label: string,
+    color: string,
+  ): Phaser.GameObjects.Text {
+    scene.add
+      .text(x + 6, 12, label, {
+        fontFamily: FONT_FAMILY,
+        fontSize: "13px",
+        color: THEME.textDim,
+      })
+      .setDepth(DEPTH.hud + 1);
+    return scene.add
+      .text(x + 6, 32, "", {
+        fontFamily: FONT_FAMILY,
+        fontSize: "24px",
+        color,
+        fontStyle: "bold",
+      })
+      .setDepth(DEPTH.hud + 1);
+  }
+
   update(state: GameState): void {
     this.dayText.setText(`${state.day} / ${BALANCE.finalDay}`);
     this.setStones(state.spiritStones);
-    this.visitorText.setText(`♟ ${state.visitorCount}`);
+    this.visitorText.setText(`${state.visitorCount}`);
     const ev = getDailyEvent(state.activeEventId);
     this.eventTitle.setText(`今日事件：${ev.name}${ev.negative ? "（负面）" : ""}`);
     this.eventTitle.setColor(ev.negative ? THEME.danger : THEME.accentText);
@@ -106,7 +130,7 @@ export class Hud {
   private setStones(target: number): void {
     const from = this.displayedStones;
     if (from === target) {
-      this.stoneText.setText(`◈ ${target}`);
+      this.stoneText.setText(`${target}`);
       return;
     }
     const counter = { v: from };
@@ -115,14 +139,13 @@ export class Hud {
       v: target,
       duration: 500,
       ease: "Cubic.easeOut",
-      onUpdate: () => this.stoneText.setText(`◈ ${Math.round(counter.v)}`),
+      onUpdate: () => this.stoneText.setText(`${Math.round(counter.v)}`),
       onComplete: () => {
         this.displayedStones = target;
-        this.stoneText.setText(`◈ ${target}`);
+        this.stoneText.setText(`${target}`);
       },
     });
     this.displayedStones = target;
-    // 灵石变动时轻微弹一下
     this.scene.tweens.add({
       targets: this.stoneText,
       scale: target > from ? 1.18 : 0.9,

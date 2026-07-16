@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { getDailyEvent } from "../game/data/daily-events";
 import type { GameState } from "../game/models/game-state";
-import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
+import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
 import { Button } from "./Button";
 
 /** 开发模式调试面板：seed、阶段、加灵石、清存档等。 */
@@ -21,10 +21,10 @@ export class DebugPanel {
     this.container = scene.add.container(20, 120).setDepth(DEPTH.debug).setVisible(false);
 
     const bg = scene.add.graphics();
-    bg.fillStyle(0x000000, 0.85);
-    bg.fillRoundedRect(0, 0, 300, 250, 10);
-    bg.lineStyle(1, THEME.accent, 0.6);
-    bg.strokeRoundedRect(0, 0, 300, 250, 10);
+    bg.fillStyle(THEME.bg, 0.92);
+    bg.fillRoundedRect(0, 0, 300, 250, RADIUS);
+    bg.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
+    bg.strokeRoundedRect(0, 0, 300, 250, RADIUS);
     this.container.add(bg);
 
     this.container.add(
@@ -55,7 +55,7 @@ export class DebugPanel {
       width: 200,
       height: 30,
       fontSize: 14,
-      color: 0x8b3a4a,
+      variant: "danger",
       onClick: onClearSave,
     });
     this.container.add(b2);

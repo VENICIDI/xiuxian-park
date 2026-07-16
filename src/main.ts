@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "./game/config";
-import { THEME } from "./game/theme";
+import { SUPERSAMPLE } from "./game/hidpi";
 import { BootScene } from "./game/scenes/BootScene";
 import { PreloadScene } from "./game/scenes/PreloadScene";
 import { MainMenuScene } from "./game/scenes/MainMenuScene";
@@ -8,12 +8,29 @@ import { ParkScene } from "./game/scenes/ParkScene";
 import { ResultScene } from "./game/scenes/ResultScene";
 import { audio } from "./game/services/AudioService";
 
+/**
+ * 全局：所有 Text 默认以 SUPERSAMPLE 分辨率渲染。
+ * 因为各场景主相机放大了 SUPERSAMPLE 倍（见 hidpi.ts），文字若仍按 1× 光栅化
+ * 会被相机放大而发糊；这里在工厂创建每个 Text 时统一提升其纹理分辨率。
+ */
+const createText = Phaser.GameObjects.GameObjectFactory.prototype.text;
+Phaser.GameObjects.GameObjectFactory.prototype.text = function (
+  this: Phaser.GameObjects.GameObjectFactory,
+  ...args: Parameters<typeof createText>
+) {
+  const t = createText.apply(this, args);
+  t.setResolution(SUPERSAMPLE);
+  return t;
+};
+
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "game-root",
-  backgroundColor: THEME.bg,
-  width: DESIGN_WIDTH,
-  height: DESIGN_HEIGHT,
+  // 画布清屏色：图片背景加载前的兜底，用天空色而非深紫，避免闪紫
+  backgroundColor: "#a6dcf2",
+  // 后备缓冲按超采样倍数放大，避免 FIT 拉伸导致整体发虚（逻辑坐标仍为 1280×720）
+  width: DESIGN_WIDTH * SUPERSAMPLE,
+  height: DESIGN_HEIGHT * SUPERSAMPLE,
   pixelArt: false,
   roundPixels: true,
   scale: {

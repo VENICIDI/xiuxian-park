@@ -21,6 +21,7 @@ import { audio } from "../services/AudioService";
 import { BoardView } from "../rendering/BoardView";
 import { AnimationPlayer } from "../rendering/AnimationPlayer";
 import { Background } from "../rendering/Background";
+import { applyHiDpiCamera } from "../hidpi";
 import { Fx } from "../rendering/Fx";
 import {
   BAR_H,
@@ -86,10 +87,11 @@ export class ParkScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyHiDpiCamera(this);
     this.cameras.main.setBackgroundColor(THEME.bg);
-    this.cameras.main.fadeIn(280, 46, 35, 72);
+    this.cameras.main.fadeIn(280, 166, 220, 242);
 
-    new Background(this, { motes: 14 });
+    new Background(this, { image: "bg-park", motes: 12 });
     this.board = new BoardView(this);
     this.fx = new Fx(this);
     this.hud = new Hud(this);
@@ -394,7 +396,7 @@ export class ParkScene extends Phaser.Scene {
 
   private goResult(): void {
     this.autosave();
-    this.cameras.main.fadeOut(300, 46, 35, 72);
+    this.cameras.main.fadeOut(300, 166, 220, 242);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start("Result", { state: this.state });
     });

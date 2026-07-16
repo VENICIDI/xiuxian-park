@@ -4,6 +4,7 @@ import { FONT_FAMILY, RADIUS, THEME } from "../theme";
 import { SaveService } from "../services/SaveService";
 import { audio } from "../services/AudioService";
 import { Background } from "../rendering/Background";
+import { applyHiDpiCamera } from "../hidpi";
 import { Button } from "../../ui/Button";
 
 export class MainMenuScene extends Phaser.Scene {
@@ -12,11 +13,12 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyHiDpiCamera(this);
     const cx = DESIGN_WIDTH / 2;
 
     this.cameras.main.setBackgroundColor(THEME.bg);
-    this.cameras.main.fadeIn(320, 46, 35, 72);
-    new Background(this, { top: 0x2a2044, bottom: 0x3a2f5e, motes: 22 });
+    this.cameras.main.fadeIn(320, 166, 220, 242);
+    new Background(this, { image: "bg-park", motes: 18, darken: 0.22 });
 
     const title = this.add
       .text(cx, 150, "修仙游乐园", {
@@ -100,7 +102,7 @@ export class MainMenuScene extends Phaser.Scene {
   private startGame(continueGame: boolean): void {
     audio.unlock();
     audio.startMusic();
-    this.cameras.main.fadeOut(280, 46, 35, 72);
+    this.cameras.main.fadeOut(280, 166, 220, 242);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start("Park", { continueGame });
     });

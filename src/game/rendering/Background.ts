@@ -7,42 +7,25 @@ export type BackgroundOptions = {
   bottom?: number;
   mountains?: boolean;
   motes?: number;
+  /** 背景大图纹理键。提供且已加载时，用图片当底图，替代程序化渐变天空/远山。 */
+  image?: string;
+  /** 图片底图之上的压暗强度（0~1），提升前景建筑与飘字对比。默认 0.14。 */
+  darken?: number;
 };
 
-/** 氛围背景（软紫 + 玉绿基调）：渐变天空 + 远山剪影 + 漂浮灵气光点。纯装饰。 */
+/** 氛围背景（明亮仙境 / 软紫基调）：图片或渐变天空 + 远山剪影 + 漂浮灵气光点。纯装饰。 */
 export class Background {
   constructor(scene: Phaser.Scene, opts: BackgroundOptions = {}) {
-    const top = opts.top ?? 0x2a2044;
-    const bottom = opts.bottom ?? PALETTE.bgAlt;
     const motes = opts.motes ?? 16;
 
-    const sky = scene.add.graphics().setDepth(-20);
-    sky.fillGradientStyle(top, top, bottom, bottom, 1);
-    sky.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+    const useImage = opts.image != null && scene.textures.exists(opts.image);
 
-    // 缥缈灵雾带
-    for (let i = 0; i < 3; i++) {
-      const band = scene.add
-        .image(
-          Phaser.Math.Between(200, DESIGN_WIDTH - 200),
-          120 + i * 90,
-          "glow",
-        )
-        .setTint(PALETTE.purple)
-        .setAlpha(0.06)
-        .setScale(22, 5)
-        .setDepth(-18);
-      scene.tweens.add({
-        targets: band,
-        x: band.x + Phaser.Math.Between(-120, 120),
-        duration: Phaser.Math.Between(9000, 16000),
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.easeInOut",
-      });
+    if (useImage) {
+      this.drawImageBase(scene, opts.image as string, opts.darken ?? 0.14);
+    } else {
+      this.drawGradientSky(scene, opts);
+      if (opts.mountains !== false) this.drawMountains(scene);
     }
-
-    if (opts.mountains !== false) this.drawMountains(scene);
 
     // 漂浮灵气光点
     for (let i = 0; i < motes; i++) {
@@ -70,6 +53,59 @@ export class Background {
         duration: Phaser.Math.Between(2000, 4000),
         yoyo: true,
         repeat: -1,
+      });
+    }
+  }
+
+  /** 图片底图：等比 cover 铺满画布并居中，其上叠一层轻微压暗以提升前景对比。 */
+  private drawImageBase(scene: Phaser.Scene, key: string, darken: number): void {
+    const src = scene.textures.get(key).getSourceImage();
+    const iw = src.width || DESIGN_WIDTH;
+    const ih = src.height || DESIGN_HEIGHT;
+    const scale = Math.max(DESIGN_WIDTH / iw, DESIGN_HEIGHT / ih);
+    scene.add
+      .image(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2, key)
+      .setOrigin(0.5)
+      .setScale(scale)
+      .setDepth(-20);
+
+    if (darken > 0) {
+      scene.add
+        .rectangle(
+          DESIGN_WIDTH / 2,
+          DESIGN_HEIGHT / 2,
+          DESIGN_WIDTH,
+          DESIGN_HEIGHT,
+          0x1a1330,
+          darken,
+        )
+        .setDepth(-19);
+    }
+  }
+
+  /** 程序化渐变天空 + 缥缈灵雾带（图片缺失时的回退基调）。 */
+  private drawGradientSky(scene: Phaser.Scene, opts: BackgroundOptions): void {
+    const top = opts.top ?? 0x2a2044;
+    const bottom = opts.bottom ?? PALETTE.bgAlt;
+
+    const sky = scene.add.graphics().setDepth(-20);
+    sky.fillGradientStyle(top, top, bottom, bottom, 1);
+    sky.fillRect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
+
+    for (let i = 0; i < 3; i++) {
+      const band = scene.add
+        .image(Phaser.Math.Between(200, DESIGN_WIDTH - 200), 120 + i * 90, "glow")
+        .setTint(PALETTE.purple)
+        .setAlpha(0.06)
+        .setScale(22, 5)
+        .setDepth(-18);
+      scene.tweens.add({
+        targets: band,
+        x: band.x + Phaser.Math.Between(-120, 120),
+        duration: Phaser.Math.Between(9000, 16000),
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
       });
     }
   }

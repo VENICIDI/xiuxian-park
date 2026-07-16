@@ -9,7 +9,8 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #2e2348;
+  /* 信箱边框底色：与明亮仙境背景协调的天空→玉绿渐变（不再用深紫） */
+  background: linear-gradient(180deg, #a6dcf2 0%, #cfeccb 100%);
   font-family: "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC",
     "Microsoft YaHei", "Segoe UI", sans-serif;
 }

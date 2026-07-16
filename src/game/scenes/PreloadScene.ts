@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../config";
 import { FONT_FAMILY, THEME } from "../theme";
+import { applyHiDpiCamera } from "../hidpi";
+import bgParkUrl from "../../assets/bg-park.png";
 
 /**
  * 预加载场景。MVP 使用程序化占位美术，因此这里主要生成基础纹理
@@ -12,6 +14,7 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   preload(): void {
+    applyHiDpiCamera(this);
     const cx = DESIGN_WIDTH / 2;
     const cy = DESIGN_HEIGHT / 2;
 
@@ -38,11 +41,8 @@ export class PreloadScene extends Phaser.Scene {
       bar.fillRoundedRect(cx - barW / 2 + 3, cy + 23, (barW - 6) * p, 18, 8);
     });
 
-    // 目前无外部资源，放一个极小的占位加载以驱动进度事件
-    this.load.image(
-      "__placeholder",
-      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-    );
+    // 场景背景大图（明亮仙境游乐园），驱动加载进度
+    this.load.image("bg-park", bgParkUrl);
   }
 
   create(): void {

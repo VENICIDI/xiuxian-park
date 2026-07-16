@@ -6,6 +6,7 @@ import { FONT_FAMILY, RADIUS, THEME } from "../theme";
 import { SaveService } from "../services/SaveService";
 import { audio } from "../services/AudioService";
 import { Background } from "../rendering/Background";
+import { applyHiDpiCamera } from "../hidpi";
 import { Fx } from "../rendering/Fx";
 import { Button } from "../../ui/Button";
 
@@ -21,6 +22,7 @@ export class ResultScene extends Phaser.Scene {
   }
 
   create(): void {
+    applyHiDpiCamera(this);
     const cx = DESIGN_WIDTH / 2;
     this.cameras.main.setBackgroundColor(THEME.bg);
     this.cameras.main.fadeIn(320, 46, 35, 72);

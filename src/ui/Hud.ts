@@ -3,12 +3,20 @@ import { DESIGN_WIDTH } from "../game/config";
 import { BALANCE } from "../game/data/balance";
 import { getDailyEvent } from "../game/data/daily-events";
 import type { GameState } from "../game/models/game-state";
-import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
+import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
 import { HUD_H } from "../game/rendering/layout";
+import { SKIN, fantasyPanel, medallion } from "./skin";
 
-const BAR_H = HUD_H;
+type Plaque = { x: number; w: number };
 
-/** 顶部 HUD（规范十三/十九 Layer7）：天数、灵石、今日游客、当前事件。 */
+const DAY: Plaque = { x: 12, w: 150 };
+const STONE: Plaque = { x: 170, w: 178 };
+const VISITOR: Plaque = { x: 356, w: 170 };
+const EVENT: Plaque = { x: 536, w: DESIGN_WIDTH - 12 - 536 };
+const PLAQUE_Y = 8;
+const PLAQUE_H = HUD_H - 16;
+
+/** 顶部 HUD（仙侠玉牌风）：天数、灵石、今日游客、当前事件。 */
 export class Hud {
   private scene: Phaser.Scene;
   private dayText: Phaser.GameObjects.Text;
@@ -16,41 +24,96 @@ export class Hud {
   private visitorText: Phaser.GameObjects.Text;
   private eventTitle: Phaser.GameObjects.Text;
   private eventDesc: Phaser.GameObjects.Text;
+  private eventIcon: Phaser.GameObjects.Text;
   private toast: Phaser.GameObjects.Text;
   private banner: Phaser.GameObjects.Text;
   private displayedStones = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+
+    // —— 雕花顶栏 ——
     const g = scene.add.graphics().setDepth(DEPTH.hud);
-    g.fillStyle(THEME.bgPanel, 1);
-    g.fillRect(0, 0, DESIGN_WIDTH, BAR_H);
-    g.fillStyle(THEME.purple, 0.9);
-    g.fillRect(0, BAR_H - 3, DESIGN_WIDTH, 3);
+    g.fillGradientStyle(0x2b4a43, 0x2b4a43, 0x14231f, 0x14231f, 1);
+    g.fillRect(0, 0, DESIGN_WIDTH, HUD_H);
+    g.fillStyle(0xffffff, 0.05);
+    g.fillRect(0, 0, DESIGN_WIDTH, 10);
+    // 底部金色双线压边
+    g.fillStyle(SKIN.goldDim, 0.9);
+    g.fillRect(0, HUD_H - 4, DESIGN_WIDTH, 4);
+    g.fillStyle(SKIN.gold, 0.85);
+    g.fillRect(0, HUD_H - 4, DESIGN_WIDTH, 1.5);
+    g.fillStyle(SKIN.edgeDark, 0.6);
+    g.fillRect(0, HUD_H, DESIGN_WIDTH, 2);
 
-    // 状态胶囊
-    this.chip(g, 20, 132, THEME.blue);
-    this.chip(g, 168, 176, THEME.gold);
-    this.chip(g, 360, 176, THEME.green);
+    // —— 三块资源玉牌 ——
+    fantasyPanel(g, DAY.x, PLAQUE_Y, DAY.w, PLAQUE_H, {
+      top: SKIN.plaqueTop,
+      bottom: SKIN.plaqueBottom,
+    });
+    fantasyPanel(g, STONE.x, PLAQUE_Y, STONE.w, PLAQUE_H, {
+      top: SKIN.plaqueTop,
+      bottom: SKIN.plaqueBottom,
+    });
+    fantasyPanel(g, VISITOR.x, PLAQUE_Y, VISITOR.w, PLAQUE_H, {
+      top: SKIN.plaqueTop,
+      bottom: SKIN.plaqueBottom,
+    });
+    fantasyPanel(g, EVENT.x, PLAQUE_Y, EVENT.w, PLAQUE_H, {
+      top: SKIN.plaqueTop,
+      bottom: SKIN.plaqueBottom,
+    });
 
-    this.dayText = this.stat(scene, 20, "📅 天数", THEME.textLight);
-    this.stoneText = this.stat(scene, 168, "💰 灵石", THEME.textGold);
-    this.visitorText = this.stat(scene, 360, "🙂 今日游客", THEME.success);
+    const cy = PLAQUE_Y + PLAQUE_H / 2;
 
+    // 图标章
+    medallion(scene, DAY.x + 32, cy, 18, "📅", SKIN.jadeLight).setDepth(
+      DEPTH.hud + 1,
+    );
+    const coinMed = medallion(scene, STONE.x + 32, cy, 18, "💰", SKIN.gold).setDepth(
+      DEPTH.hud + 1,
+    );
+    medallion(scene, VISITOR.x + 32, cy, 18, "🙂", THEME.green).setDepth(
+      DEPTH.hud + 1,
+    );
+    const eventMed = medallion(scene, EVENT.x + 30, cy, 18, "✨", SKIN.gold).setDepth(
+      DEPTH.hud + 1,
+    );
+    this.eventIcon = eventMed.getAt(1) as Phaser.GameObjects.Text;
+
+    // 金币玉牌轻微呼吸（货币感）
+    scene.tweens.add({
+      targets: coinMed,
+      scale: 1.06,
+      duration: 1600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    // 数值文本
+    this.dayText = this.value(DAY.x + 58, cy, THEME.textLight);
+    this.stoneText = this.value(STONE.x + 58, cy, SKIN.textGold);
+    this.visitorText = this.value(VISITOR.x + 58, cy, "#9ff0a6");
+    this.label(DAY.x + 58, "天数");
+    this.label(STONE.x + 58, "灵石");
+    this.label(VISITOR.x + 58, "今日游客");
+
+    // 事件牌
     this.eventTitle = scene.add
-      .text(576, 12, "", {
+      .text(EVENT.x + 54, PLAQUE_Y + 9, "", {
         fontFamily: FONT_FAMILY,
-        fontSize: "16px",
-        color: THEME.accentText,
+        fontSize: "15px",
+        color: SKIN.textLight,
         fontStyle: "bold",
       })
       .setDepth(DEPTH.hud + 1);
     this.eventDesc = scene.add
-      .text(576, 36, "", {
+      .text(EVENT.x + 54, PLAQUE_Y + 30, "", {
         fontFamily: FONT_FAMILY,
-        fontSize: "13px",
-        color: THEME.textDim,
-        wordWrap: { width: DESIGN_WIDTH - 600 },
+        fontSize: "12px",
+        color: SKIN.textDim,
+        wordWrap: { width: EVENT.w - 72 },
       })
       .setDepth(DEPTH.hud + 1);
 
@@ -59,7 +122,7 @@ export class Hud {
         fontFamily: FONT_FAMILY,
         fontSize: "20px",
         color: THEME.textLight,
-        backgroundColor: "#241b3add",
+        backgroundColor: "#12241fdd",
         padding: { x: 16, y: 10 },
         fontStyle: "bold",
       })
@@ -73,7 +136,7 @@ export class Hud {
         fontSize: "48px",
         color: THEME.textGold,
         fontStyle: "bold",
-        stroke: "#241b3a",
+        stroke: "#12241f",
         strokeThickness: 6,
       })
       .setOrigin(0.5)
@@ -81,38 +144,25 @@ export class Hud {
       .setAlpha(0);
   }
 
-  private chip(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    w: number,
-    accent: number,
-  ): void {
-    g.fillStyle(THEME.bgPanelLight, 1);
-    g.fillRoundedRect(x - 6, 8, w, BAR_H - 16, RADIUS);
-    g.lineStyle(2, accent, 0.5);
-    g.strokeRoundedRect(x - 6, 8, w, BAR_H - 16, RADIUS);
-  }
-
-  private stat(
-    scene: Phaser.Scene,
-    x: number,
-    label: string,
-    color: string,
-  ): Phaser.GameObjects.Text {
-    scene.add
-      .text(x + 6, 12, label, {
+  private label(x: number, text: string): void {
+    this.scene.add
+      .text(x, PLAQUE_Y + 8, text, {
         fontFamily: FONT_FAMILY,
-        fontSize: "13px",
-        color: THEME.textDim,
+        fontSize: "12px",
+        color: SKIN.textDim,
       })
       .setDepth(DEPTH.hud + 1);
-    return scene.add
-      .text(x + 6, 32, "", {
+  }
+
+  private value(x: number, cy: number, color: string): Phaser.GameObjects.Text {
+    return this.scene.add
+      .text(x, cy + 3, "", {
         fontFamily: FONT_FAMILY,
-        fontSize: "24px",
+        fontSize: "23px",
         color,
         fontStyle: "bold",
       })
+      .setOrigin(0, 0.5)
       .setDepth(DEPTH.hud + 1);
   }
 
@@ -121,9 +171,10 @@ export class Hud {
     this.setStones(state.spiritStones);
     this.visitorText.setText(`${state.visitorCount}`);
     const ev = getDailyEvent(state.activeEventId);
-    this.eventTitle.setText(`今日事件：${ev.name}${ev.negative ? "（负面）" : ""}`);
-    this.eventTitle.setColor(ev.negative ? THEME.danger : THEME.accentText);
+    this.eventTitle.setText(`${ev.name}${ev.negative ? "（负面）" : ""}`);
+    this.eventTitle.setColor(ev.negative ? THEME.danger : SKIN.textGold);
     this.eventDesc.setText(ev.description);
+    this.eventIcon.setText(ev.negative ? "⚠️" : "✨");
   }
 
   /** 灵石数字滚动到目标值。 */

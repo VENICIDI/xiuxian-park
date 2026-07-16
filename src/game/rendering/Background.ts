@@ -11,6 +11,8 @@ export type BackgroundOptions = {
   image?: string;
   /** 图片底图之上的压暗强度（0~1），提升前景建筑与飘字对比。默认 0.14。 */
   darken?: number;
+  /** 图片底图去饱和强度（0~1，0 不变）。让高饱和背景不抢戏，突出地图。默认 0。 */
+  desaturate?: number;
 };
 
 /** 氛围背景（明亮仙境 / 软紫基调）：图片或渐变天空 + 远山剪影 + 漂浮灵气光点。纯装饰。 */
@@ -21,7 +23,12 @@ export class Background {
     const useImage = opts.image != null && scene.textures.exists(opts.image);
 
     if (useImage) {
-      this.drawImageBase(scene, opts.image as string, opts.darken ?? 0.14);
+      this.drawImageBase(
+        scene,
+        opts.image as string,
+        opts.darken ?? 0.14,
+        opts.desaturate ?? 0,
+      );
     } else {
       this.drawGradientSky(scene, opts);
       if (opts.mountains !== false) this.drawMountains(scene);
@@ -57,17 +64,48 @@ export class Background {
     }
   }
 
-  /** 图片底图：等比 cover 铺满画布并居中，其上叠一层轻微压暗以提升前景对比。 */
-  private drawImageBase(scene: Phaser.Scene, key: string, darken: number): void {
+  /** 图片底图：等比 cover 铺满画布并居中，可选去饱和 + 压暗，以突出地图主体。 */
+  private drawImageBase(
+    scene: Phaser.Scene,
+    key: string,
+    darken: number,
+    desaturate: number,
+  ): void {
     const src = scene.textures.get(key).getSourceImage();
     const iw = src.width || DESIGN_WIDTH;
     const ih = src.height || DESIGN_HEIGHT;
     const scale = Math.max(DESIGN_WIDTH / iw, DESIGN_HEIGHT / ih);
-    scene.add
+    const img = scene.add
       .image(DESIGN_WIDTH / 2, DESIGN_HEIGHT / 2, key)
       .setOrigin(0.5)
       .setScale(scale)
       .setDepth(-20);
+
+    // 去饱和（WebGL 下用 ColorMatrix 后效；不支持时回退到灰蒙层）
+    if (desaturate > 0) {
+      const fx = (
+        img as unknown as {
+          postFX?: {
+            addColorMatrix?: () => { saturate: (v: number, m?: boolean) => void };
+          };
+        }
+      ).postFX;
+      const cm = fx?.addColorMatrix?.();
+      if (cm) {
+        cm.saturate(-desaturate);
+      } else {
+        scene.add
+          .rectangle(
+            DESIGN_WIDTH / 2,
+            DESIGN_HEIGHT / 2,
+            DESIGN_WIDTH,
+            DESIGN_HEIGHT,
+            0x8a8a8a,
+            desaturate * 0.5,
+          )
+          .setDepth(-19);
+      }
+    }
 
     if (darken > 0) {
       scene.add
@@ -76,7 +114,7 @@ export class Background {
           DESIGN_HEIGHT / 2,
           DESIGN_WIDTH,
           DESIGN_HEIGHT,
-          0x1a1330,
+          0x101826,
           darken,
         )
         .setDepth(-19);

@@ -31,7 +31,11 @@ export const THEME = {
   // —— 棋盘：草地 + 路面 ——
   grassA: 0x86c97a,
   grassB: 0x77bd6b,
+  grassC: 0x8fd487, // 偏亮变体（随机点缀，避免草地全一致）
+  grassD: 0x6fb463, // 偏深变体
   grassLine: 0x6bae5f,
+  grassHi: 0xffffff, // 地块上边缘提亮
+  grassLo: 0x315a2c, // 地块下边缘压暗
   road: 0xe9dcbc,
   roadEdge: 0xcbb98c,
 

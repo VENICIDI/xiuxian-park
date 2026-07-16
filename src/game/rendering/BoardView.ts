@@ -52,10 +52,12 @@ export class BoardView {
       const d = cellDiamond(i);
       if (isRoad(i)) {
         this.fillDiamond(g, d, THEME.road, 1);
-        this.strokeDiamond(g, d, THEME.roadEdge, 0.7, 1);
+        this.bevelDiamond(g, d, 0.1, 0.14);
+        this.strokeDiamond(g, d, THEME.roadEdge, 0.6, 1);
       } else {
-        this.fillDiamond(g, d, even ? THEME.grassA : THEME.grassB, 1);
-        this.strokeDiamond(g, d, THEME.grassLine, 0.5, 1);
+        this.fillDiamond(g, d, this.grassColor(i, even), 1);
+        // 立体感：上边缘提亮、下边缘压暗（避免地块过于平面）
+        this.bevelDiamond(g, d, 0.16, 0.2);
       }
     }
 
@@ -79,9 +81,11 @@ export class BoardView {
       });
       g.strokePath();
     };
-    strokeRoute(14, THEME.roadEdge, 0.25);
-    strokeRoute(6, 0xf4ead0, 0.5);
-    strokeRoute(2, 0xfff6df, 0.7);
+    // 连贯石板飘带：落地软阴影 → 石板边 → 石板面 → 中线高光
+    strokeRoute(30, 0x1c2a14, 0.14);
+    strokeRoute(24, THEME.roadEdge, 0.85);
+    strokeRoute(16, THEME.road, 1);
+    strokeRoute(4, 0xfff6df, 0.55);
 
     this.drawMarker(ENTRANCE_INDEX, THEME.green, "入口");
     this.drawMarker(EXIT_INDEX, THEME.red, "出口");
@@ -113,6 +117,38 @@ export class BoardView {
     g.beginPath();
     g.moveTo(bottom.x, bottom.y);
     g.lineTo(down(bottom).x, down(bottom).y);
+    g.strokePath();
+  }
+
+  /** 确定性地为每格挑选草色：以棋盘格底色为主，约 25% 换成亮/深变体。 */
+  private grassColor(index: number, even: boolean): number {
+    const h = Math.imul(index + 1, 2654435761) >>> 0;
+    const r = h % 100;
+    if (r < 13) return THEME.grassC;
+    if (r < 25) return THEME.grassD;
+    return even ? THEME.grassA : THEME.grassB;
+  }
+
+  /** 地块斜面立体感：沿上两条边描亮、下两条边描暗。 */
+  private bevelDiamond(
+    g: Phaser.GameObjects.Graphics,
+    d: { top: Pt; right: Pt; bottom: Pt; left: Pt },
+    hiAlpha: number,
+    loAlpha: number,
+  ): void {
+    // 上边缘（左→上→右）提亮
+    g.lineStyle(2, THEME.grassHi, hiAlpha);
+    g.beginPath();
+    g.moveTo(d.left.x, d.left.y);
+    g.lineTo(d.top.x, d.top.y);
+    g.lineTo(d.right.x, d.right.y);
+    g.strokePath();
+    // 下边缘（左→下→右）压暗
+    g.lineStyle(2, THEME.grassLo, loAlpha);
+    g.beginPath();
+    g.moveTo(d.left.x, d.left.y);
+    g.lineTo(d.bottom.x, d.bottom.y);
+    g.lineTo(d.right.x, d.right.y);
     g.strokePath();
   }
 

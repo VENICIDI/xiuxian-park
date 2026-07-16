@@ -91,7 +91,13 @@ export class ParkScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(THEME.bg);
     this.cameras.main.fadeIn(280, 166, 220, 242);
 
-    new Background(this, { image: "bg-park", motes: 12 });
+    // 游戏场景：背景降亮降饱和，让地图成为视觉主体
+    new Background(this, {
+      image: "bg-park",
+      motes: 10,
+      darken: 0.34,
+      desaturate: 0.38,
+    });
     this.board = new BoardView(this);
     this.fx = new Fx(this);
     this.hud = new Hud(this);

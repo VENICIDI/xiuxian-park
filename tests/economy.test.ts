@@ -5,11 +5,11 @@ import { forcePlace, newGame } from "./helpers";
 
 function buildSamplePark(seed: number) {
   const s = newGame(seed);
-  // 均放在 y=0 空地（紧邻 y=1 道路走廊，可被游客服务）
-  forcePlace(s, "sword-coaster", 0, 0); // 2×1 → 占 (0,0)(1,0)
-  forcePlace(s, "pill-shop", 2, 0);
-  forcePlace(s, "mengpo-tea", 3, 0);
-  forcePlace(s, "spirit-gathering-array", 4, 0); // 相邻孟婆奶茶提供 +15%
+  // 均放在左袋 x1~2（紧邻第 0/3 列竖直道路，可被游客服务）
+  forcePlace(s, "sword-coaster", 1, 0); // 2×1 → 占 (1,0)(2,0)
+  forcePlace(s, "pill-shop", 1, 1);
+  forcePlace(s, "mengpo-tea", 1, 2);
+  forcePlace(s, "spirit-gathering-array", 2, 1); // 相邻丹药铺/过山车提供 +15%
   return s;
 }
 

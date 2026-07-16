@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { GRID_HEIGHT, GRID_WIDTH } from "../config";
 import { getBuildingDef } from "../data/buildings";
 import type { GameState } from "../models/game-state";
 import { DEPTH, FONT_FAMILY, THEME } from "../theme";
@@ -24,9 +23,10 @@ import { AnimationPlayer } from "../rendering/AnimationPlayer";
 import { Background } from "../rendering/Background";
 import { Fx } from "../rendering/Fx";
 import {
-  BOARD_X,
-  BOARD_Y,
-  TILE_DISPLAY,
+  PLAY_X,
+  PLAY_Y,
+  PLAY_W,
+  PLAY_H,
   cellCenter,
   indexAtWorld,
 } from "../rendering/layout";
@@ -171,12 +171,7 @@ export class ParkScene extends Phaser.Scene {
   // ————————————————— 输入 —————————————————
   private setupBoardInput(): void {
     const zone = this.add
-      .zone(
-        BOARD_X,
-        BOARD_Y,
-        GRID_WIDTH * TILE_DISPLAY,
-        GRID_HEIGHT * TILE_DISPLAY,
-      )
+      .zone(PLAY_X, PLAY_Y, PLAY_W, PLAY_H)
       .setOrigin(0, 0)
       .setInteractive();
 

@@ -2,10 +2,14 @@ import Phaser from "phaser";
 import { SECT_DEFINITIONS } from "../data/visitors";
 import type { GameState, PresentationEvent } from "../models/game-state";
 import type { Sect } from "../models/visitor";
-import { DEPTH } from "../theme";
 import { ENTRANCE_INDEX, ROUTE } from "../systems/route";
 import { positionToIndex } from "../systems/PlacementSystem";
-import { cellCenter } from "./layout";
+import { cellCenter, isoRank } from "./layout";
+
+const ISO_DEPTH_BASE = 10;
+const ISO_DEPTH_STEP = 1.2;
+/** 游客略高于同格建筑，保证行走时的遮挡关系自然。 */
+const VISITOR_DEPTH_BIAS = 0.6;
 
 type Purchase = { cell: number; amount: number; thunder: boolean };
 
@@ -29,14 +33,13 @@ export type PlayOptions = {
 /** 依据表现事件日志播放动画。只消费日志，不回写经济状态。 */
 export class AnimationPlayer {
   private scene: Phaser.Scene;
-  private layer: Phaser.GameObjects.Container;
+  private persons: Phaser.GameObjects.Container[] = [];
   private done = false;
   private remaining = 0;
   private onComplete: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.layer = scene.add.container(0, 0).setDepth(DEPTH.visitor);
   }
 
   play(opts: PlayOptions): void {
@@ -118,17 +121,18 @@ export class AnimationPlayer {
     const start = cellCenter(ENTRANCE_INDEX);
 
     const person = this.scene.add.container(start.x, start.y);
+    person.setDepth(ISO_DEPTH_BASE + isoRank(ENTRANCE_INDEX) * ISO_DEPTH_STEP + VISITOR_DEPTH_BIAS);
     const shadow = this.scene.add
-      .image(0, 16, "shadow")
-      .setAlpha(0.35)
-      .setScale(0.7);
+      .image(0, 10, "shadow")
+      .setAlpha(0.3)
+      .setScale(0.55);
     const body = this.scene.add
       .image(0, 0, "person")
       .setTint(sect.color)
-      .setScale(0.9)
-      .setOrigin(0.5, 0.75);
+      .setScale(0.72)
+      .setOrigin(0.5, 0.8);
     person.add([shadow, body]);
-    this.layer.add(person);
+    this.persons.push(person);
 
     // 走路摆动（身体上下轻微起伏）
     const bob = this.scene.tweens.add({
@@ -175,6 +179,10 @@ export class AnimationPlayer {
       // 朝向：根据水平位移翻转
       if (c.x < person.x - 1) body.setFlipX(true);
       else if (c.x > person.x + 1) body.setFlipX(false);
+      // 深度随所在格更新，保证与建筑的前后遮挡
+      person.setDepth(
+        ISO_DEPTH_BASE + isoRank(ROUTE[idx]) * ISO_DEPTH_STEP + VISITOR_DEPTH_BIAS,
+      );
       this.scene.tweens.add({
         targets: person,
         x: c.x,
@@ -218,7 +226,12 @@ export class AnimationPlayer {
   private finish(): void {
     if (this.done) return;
     this.done = true;
-    this.layer.removeAll(true);
+    for (const p of this.persons) {
+      this.scene.tweens.killTweensOf(p);
+      this.scene.tweens.killTweensOf(p.list);
+      p.destroy();
+    }
+    this.persons = [];
     const cb = this.onComplete;
     this.onComplete = null;
     cb?.();
@@ -227,7 +240,6 @@ export class AnimationPlayer {
   /** 跳过：立即结束动画。 */
   skip(): void {
     if (this.done) return;
-    this.scene.tweens.killTweensOf(this.layer.list);
     this.finish();
   }
 

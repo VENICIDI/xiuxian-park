@@ -1,72 +1,73 @@
 import Phaser from "phaser";
-import { BOARD_SIZE, GRID_HEIGHT, GRID_WIDTH } from "../config";
+import { BOARD_SIZE, GRID_HEIGHT, GRID_WIDTH, indexOf } from "../config";
 import { getBuildingDef } from "../data/buildings";
 import { RARITY_COLOR, effectiveSize } from "../models/building";
-import type { BuildingInstance } from "../models/building";
+import type { BuildingDefinition, BuildingInstance } from "../models/building";
 import type { GameState } from "../models/game-state";
 import { DEPTH, FONT_FAMILY, THEME } from "../theme";
 import { ENTRANCE_INDEX, EXIT_INDEX, ROUTE, isRoad } from "../systems/route";
 import {
-  BOARD_X,
-  BOARD_Y,
-  TILE_DISPLAY,
   cellCenter,
-  cellTopLeft,
+  cellDiamond,
+  footprintDiamond,
+  isoCorner,
+  isoRank,
+  type Pt,
 } from "./layout";
 
-/** 棋盘与建筑的渲染层。 */
+const ISO_DEPTH_BASE = 10;
+const ISO_DEPTH_STEP = 1.2;
+
+/** 等距棋盘与建筑的渲染层。 */
 export class BoardView {
   private scene: Phaser.Scene;
   private gridGfx: Phaser.GameObjects.Graphics;
   private highlightGfx: Phaser.GameObjects.Graphics;
   private overlayGfx: Phaser.GameObjects.Graphics;
-  private buildingLayer: Phaser.GameObjects.Container;
   private sprites = new Map<number, Phaser.GameObjects.Container>();
+  private buildingContainers: Phaser.GameObjects.Container[] = [];
   private seen = new Set<string>();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.gridGfx = scene.add.graphics().setDepth(DEPTH.board);
-    this.overlayGfx = scene.add.graphics().setDepth(DEPTH.board + 1);
-    this.highlightGfx = scene.add.graphics().setDepth(DEPTH.highlight);
-    this.buildingLayer = scene.add.container(0, 0).setDepth(DEPTH.building);
+    this.overlayGfx = scene.add.graphics().setDepth(27);
+    this.highlightGfx = scene.add.graphics().setDepth(28);
     this.drawGrid();
   }
 
+  // ————————————————— 地面 —————————————————
   private drawGrid(): void {
     const g = this.gridGfx;
     g.clear();
-    // 外框
-    g.fillStyle(0x000000, 0.3);
-    g.fillRoundedRect(
-      BOARD_X - 8,
-      BOARD_Y - 8,
-      GRID_WIDTH * TILE_DISPLAY + 16,
-      GRID_HEIGHT * TILE_DISPLAY + 16,
-      12,
-    );
+
+    // 整块园区底板（带厚度的浮空石台）——制造强烈立体感
+    this.drawBaseSlab(g);
 
     for (let i = 0; i < BOARD_SIZE; i++) {
-      const { x, y } = cellTopLeft(i);
       const gx = i % GRID_WIDTH;
       const gy = Math.floor(i / GRID_WIDTH);
       const even = (gx + gy) % 2 === 0;
+      const d = cellDiamond(i);
       if (isRoad(i)) {
-        // 道路格：不可放置，用醒目的道路配色
-        g.fillStyle(THEME.road, 1);
-        g.fillRect(x + 1, y + 1, TILE_DISPLAY - 2, TILE_DISPLAY - 2);
-        g.lineStyle(1, 0x6a8bc0, 0.5);
-        g.strokeRect(x + 1, y + 1, TILE_DISPLAY - 2, TILE_DISPLAY - 2);
+        this.fillDiamond(g, d, THEME.road, 1);
+        this.strokeDiamond(g, d, 0x6a8bc0, 0.5, 1);
       } else {
-        // 可建造空地
-        g.fillStyle(even ? THEME.tileEven : THEME.tileOdd, 1);
-        g.fillRect(x + 1, y + 1, TILE_DISPLAY - 2, TILE_DISPLAY - 2);
-        g.lineStyle(1, THEME.gridLine, 0.5);
-        g.strokeRect(x + 1, y + 1, TILE_DISPLAY - 2, TILE_DISPLAY - 2);
+        this.fillDiamond(g, d, even ? THEME.tileEven : THEME.tileOdd, 1);
+        this.strokeDiamond(g, d, THEME.gridLine, 0.5, 1);
       }
     }
 
-    // 路线中心连线（表示游客行走方向）：外发光 + 亮线
+    // 底板顶面外缘描一圈亮边，强调台面
+    const outer = {
+      top: isoCorner(0, 0),
+      right: isoCorner(GRID_WIDTH, 0),
+      bottom: isoCorner(GRID_WIDTH, GRID_HEIGHT),
+      left: isoCorner(0, GRID_HEIGHT),
+    };
+    this.strokeDiamond(g, outer, 0x5b4d84, 0.9, 2);
+
+    // 路线连线（外发光 + 亮线）
     const strokeRoute = (width: number, color: number, alpha: number) => {
       g.lineStyle(width, color, alpha);
       g.beginPath();
@@ -77,80 +78,198 @@ export class BoardView {
       });
       g.strokePath();
     };
-    strokeRoute(16, 0x5b7fb8, 0.2);
-    strokeRoute(8, 0x7fa5df, 0.55);
-    strokeRoute(3, 0xcfe0ff, 0.7);
-
-    // 路线方向箭头（沿道路每隔几格）
-    g.fillStyle(0xcfe0ff, 0.5);
-    for (let i = 0; i < ROUTE.length - 1; i += 2) {
-      const a = cellCenter(ROUTE[i]);
-      const b = cellCenter(ROUTE[i + 1]);
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
-      g.fillCircle(mx, my, 3);
-    }
+    strokeRoute(14, 0x5b7fb8, 0.2);
+    strokeRoute(7, 0x7fa5df, 0.5);
+    strokeRoute(2.5, 0xcfe0ff, 0.7);
 
     this.drawMarker(ENTRANCE_INDEX, THEME.entrance, "入口");
     this.drawMarker(EXIT_INDEX, THEME.exit, "出口");
   }
 
+  /** 园区底板：在地面菱形下方拉出两片侧壁，形成厚石台。 */
+  private drawBaseSlab(g: Phaser.GameObjects.Graphics): void {
+    const D = 54; // 底板厚度
+    const right = isoCorner(GRID_WIDTH, 0);
+    const bottom = isoCorner(GRID_WIDTH, GRID_HEIGHT);
+    const left = isoCorner(0, GRID_HEIGHT);
+    const down = (p: Pt): Pt => ({ x: p.x, y: p.y + D });
+
+    // 左前侧壁（西南面，较暗）
+    g.fillStyle(0x0d0a18, 1);
+    this.poly(g, [left, bottom, down(bottom), down(left)]);
+    // 右前侧壁（东南面，稍亮）
+    g.fillStyle(0x171130, 1);
+    this.poly(g, [bottom, right, down(right), down(bottom)]);
+    // 底缘描边
+    g.lineStyle(2, 0x2e2447, 0.9);
+    g.beginPath();
+    g.moveTo(down(left).x, down(left).y);
+    g.lineTo(down(bottom).x, down(bottom).y);
+    g.lineTo(down(right).x, down(right).y);
+    g.strokePath();
+    // 侧壁竖棱
+    g.lineStyle(1.5, 0x2e2447, 0.7);
+    g.beginPath();
+    g.moveTo(bottom.x, bottom.y);
+    g.lineTo(down(bottom).x, down(bottom).y);
+    g.strokePath();
+  }
+
+  private diamondPath(
+    g: Phaser.GameObjects.Graphics,
+    d: { top: Pt; right: Pt; bottom: Pt; left: Pt },
+  ): void {
+    g.beginPath();
+    g.moveTo(d.top.x, d.top.y);
+    g.lineTo(d.right.x, d.right.y);
+    g.lineTo(d.bottom.x, d.bottom.y);
+    g.lineTo(d.left.x, d.left.y);
+    g.closePath();
+  }
+
+  private fillDiamond(
+    g: Phaser.GameObjects.Graphics,
+    d: { top: Pt; right: Pt; bottom: Pt; left: Pt },
+    color: number,
+    alpha: number,
+  ): void {
+    g.fillStyle(color, alpha);
+    this.diamondPath(g, d);
+    g.fillPath();
+  }
+
+  private strokeDiamond(
+    g: Phaser.GameObjects.Graphics,
+    d: { top: Pt; right: Pt; bottom: Pt; left: Pt },
+    color: number,
+    alpha: number,
+    width: number,
+  ): void {
+    g.lineStyle(width, color, alpha);
+    this.diamondPath(g, d);
+    g.strokePath();
+  }
+
   private drawMarker(index: number, color: number, label: string): void {
     const c = cellCenter(index);
-    this.gridGfx.fillStyle(color, 0.5);
-    this.gridGfx.fillCircle(c.x, c.y, 14);
+    const d = cellDiamond(index);
+    this.fillDiamond(this.gridGfx, d, color, 0.45);
     this.scene.add
-      .text(c.x, c.y, label, {
+      .text(c.x, c.y - 6, label, {
         fontFamily: FONT_FAMILY,
         fontSize: "12px",
         color: THEME.textLight,
+        fontStyle: "bold",
+        stroke: "#1a1226",
+        strokeThickness: 3,
       })
       .setOrigin(0.5)
-      .setDepth(DEPTH.board + 2);
+      .setDepth(2);
   }
 
-  /** 全量重建建筑精灵。 */
+  // ————————————————— 建筑 —————————————————
   refresh(state: GameState): void {
-    this.buildingLayer.removeAll(true);
+    for (const c of this.buildingContainers) c.destroy();
+    this.buildingContainers = [];
     this.sprites.clear();
+    // 后→前顺序创建（深度亦按秩设置，双保险）
     for (let i = 0; i < BOARD_SIZE; i++) {
       const inst = state.board[i];
       if (inst) this.createBuildingSprite(i, inst);
     }
   }
 
+  private buildingHeight(def: BuildingDefinition): number {
+    switch (def.category) {
+      case "ride":
+        return 96;
+      case "shop":
+        return 74;
+      case "buff":
+        return 58;
+      default:
+        return 70;
+    }
+  }
+
   private createBuildingSprite(index: number, inst: BuildingInstance): void {
     const def = getBuildingDef(inst.definitionId);
     const eff = effectiveSize(def, inst.rotation ?? 0);
-    const tl = cellTopLeft(index);
-    const rectW = eff.w * TILE_DISPLAY;
-    const rectH = eff.h * TILE_DISPLAY;
-    const bw = rectW - 12;
-    const bh = rectH - 12;
-    const cx = tl.x + rectW / 2;
-    const cy = tl.y + rectH / 2;
+    const gx = index % GRID_WIDTH;
+    const gy = Math.floor(index / GRID_WIDTH);
+    const fp = footprintDiamond(gx, gy, eff.w, eff.h);
+    const center = fp.center;
     const disabled = (inst.disabledDays ?? 0) > 0;
-    const rarityColor = RARITY_COLOR[def.rarity];
-    const container = this.scene.add.container(cx, cy);
+    const H = this.buildingHeight(def) + (inst.level - 1) * 8;
 
-    // 落地阴影
+    const rel = (p: Pt): Pt => ({ x: p.x - center.x, y: p.y - center.y });
+    const back = rel(fp.back);
+    const right = rel(fp.right);
+    const front = rel(fp.front);
+    const left = rel(fp.left);
+    const up = (p: Pt): Pt => ({ x: p.x, y: p.y - H });
+    const rBack = up(back);
+    const rRight = up(right);
+    const rFront = up(front);
+    const rLeft = up(left);
+
+    const container = this.scene.add.container(center.x, center.y);
+
+    // 接地阴影
     const shadow = this.scene.add.graphics();
-    shadow.fillStyle(0x000000, 0.28);
-    shadow.fillEllipse(0, bh / 2 + 2, bw * 0.86, 16);
+    shadow.fillStyle(0x000000, 0.25);
+    this.poly(shadow, [back, right, front, left]);
     container.add(shadow);
 
-    // 品质外发光（宝品及以上）
+    const rarityColor = RARITY_COLOR[def.rarity];
+    const roofColor = this.lighten(def.color, 0.22);
+    const leftColor = this.lighten(def.color, -0.44);
+    const rightColor = this.lighten(def.color, -0.22);
+    const edgeColor = this.lighten(def.color, -0.55);
+
+    const box = this.scene.add.graphics();
+    // 左侧墙面（西南面，最暗）
+    box.fillStyle(leftColor, 1);
+    this.poly(box, [left, front, rFront, rLeft]);
+    // 右侧墙面（东南面，中等）
+    box.fillStyle(rightColor, 1);
+    this.poly(box, [front, right, rRight, rFront]);
+    // 屋顶（最亮）
+    box.fillStyle(roofColor, 1);
+    this.poly(box, [rBack, rRight, rFront, rLeft]);
+    // 竖直棱边（左/前/右），强化体块
+    box.lineStyle(1.5, edgeColor, 0.7);
+    box.beginPath();
+    box.moveTo(left.x, left.y);
+    box.lineTo(rLeft.x, rLeft.y);
+    box.moveTo(front.x, front.y);
+    box.lineTo(rFront.x, rFront.y);
+    box.moveTo(right.x, right.y);
+    box.lineTo(rRight.x, rRight.y);
+    box.strokePath();
+    // 底边棱线
+    box.beginPath();
+    box.moveTo(left.x, left.y);
+    box.lineTo(front.x, front.y);
+    box.lineTo(right.x, right.y);
+    box.strokePath();
+    // 屋顶品质描边
+    box.lineStyle(2, rarityColor, 0.95);
+    this.strokePoly(box, [rBack, rRight, rFront, rLeft]);
+    container.add(box);
+
+    // 品质发光（宝品及以上）
     if (def.rarity === "rare" || def.rarity === "epic" || def.rarity === "legendary") {
       const halo = this.scene.add
-        .image(0, 0, "glow")
+        .image(0, -H, "glow")
         .setTint(rarityColor)
         .setBlendMode(Phaser.BlendModes.ADD)
-        .setScale(bw / 26, bh / 26)
-        .setAlpha(0.32);
+        .setScale(2.2)
+        .setAlpha(0.3);
       container.add(halo);
       this.scene.tweens.add({
         targets: halo,
-        alpha: 0.14,
+        alpha: 0.12,
         duration: 1100,
         yoyo: true,
         repeat: -1,
@@ -158,62 +277,44 @@ export class BoardView {
       });
     }
 
-    const body = this.scene.add.graphics();
-    // 品质描边
-    body.fillStyle(rarityColor, 1);
-    body.fillRoundedRect(-bw / 2 - 3, -bh / 2 - 3, bw + 6, bh + 6, 12);
-    // 主体：下半深色打底，上半浅色叠加，形成上浅下深的立体感
-    body.fillStyle(this.lighten(def.color, -0.2), 1);
-    body.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 9);
-    body.fillStyle(this.lighten(def.color, 0.12), 1);
-    body.fillRoundedRect(-bw / 2, -bh / 2, bw, bh * 0.55, 9);
-    // 顶部高光带
-    body.fillStyle(0xffffff, 0.18);
-    body.fillRoundedRect(-bw / 2 + 3, -bh / 2 + 3, bw - 6, Math.min(bh / 3, 22), 7);
-    container.add(body);
-
-    // 图标底座 + 图标
-    const badge = this.scene.add.graphics();
-    badge.fillStyle(0x1a1226, 0.28);
-    badge.fillCircle(0, -bh / 6, 20);
-    container.add(badge);
+    // 图标（屋顶中心上方）
     const glyph = this.categoryGlyph(def.category);
     const glyphText = this.scene.add
-      .text(0, -bh / 6, glyph, { fontFamily: FONT_FAMILY, fontSize: "26px" })
+      .text(0, -H - 4, glyph, { fontFamily: FONT_FAMILY, fontSize: "24px" })
       .setOrigin(0.5);
     container.add(glyphText);
 
+    // 名称
     const name = this.scene.add
-      .text(0, bh / 2 - 20, def.name, {
+      .text(0, -H + 15, def.name, {
         fontFamily: FONT_FAMILY,
-        fontSize: "12px",
+        fontSize: "11px",
         color: "#faf6ff",
         fontStyle: "bold",
         align: "center",
         stroke: "#1a1226",
         strokeThickness: 3,
-        wordWrap: { width: bw - 6 },
+        wordWrap: { width: eff.w * 80 },
       })
       .setOrigin(0.5);
     container.add(name);
 
     // 等级星
     const stars = this.scene.add
-      .text(-bw / 2 + 6, -bh / 2 + 4, "★".repeat(inst.level), {
+      .text(rLeft.x + 6, rLeft.y - 2, "★".repeat(inst.level), {
         fontFamily: FONT_FAMILY,
-        fontSize: "12px",
+        fontSize: "11px",
         color: "#ffd54f",
       })
-      .setOrigin(0, 0);
+      .setOrigin(0, 1);
     container.add(stars);
 
-    // 停业遮罩
     if (disabled) {
       container.setAlpha(0.55);
       const tag = this.scene.add
-        .text(0, 0, "停业", {
+        .text(0, -H, "停业", {
           fontFamily: FONT_FAMILY,
-          fontSize: "16px",
+          fontSize: "15px",
           color: "#ff6b81",
           fontStyle: "bold",
           stroke: "#1a1226",
@@ -223,10 +324,13 @@ export class BoardView {
       container.add(tag);
     }
 
-    this.buildingLayer.add(container);
+    const frontCell = indexOf(gx + eff.w - 1, gy + eff.h - 1);
+    container.setDepth(ISO_DEPTH_BASE + isoRank(frontCell) * ISO_DEPTH_STEP);
+
+    this.buildingContainers.push(container);
     this.sprites.set(index, container);
 
-    // idle 微动：游乐设施轻微上下浮动，增益建筑呼吸缩放
+    // idle 微动
     if (!disabled) {
       if (def.category === "ride") {
         this.scene.tweens.add({
@@ -253,7 +357,7 @@ export class BoardView {
     // 新建筑弹入
     if (!this.seen.has(inst.instanceId)) {
       this.seen.add(inst.instanceId);
-      container.setScale(0.4);
+      container.setScale(0.5);
       container.setAlpha(disabled ? 0 : 0.2);
       this.scene.tweens.add({
         targets: container,
@@ -265,7 +369,22 @@ export class BoardView {
     }
   }
 
-  /** 颜色明暗调整，amount ∈ [-1,1]。 */
+  private poly(g: Phaser.GameObjects.Graphics, pts: Pt[]): void {
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+    g.closePath();
+    g.fillPath();
+  }
+
+  private strokePoly(g: Phaser.GameObjects.Graphics, pts: Pt[]): void {
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+    g.closePath();
+    g.strokePath();
+  }
+
   private lighten(color: number, amount: number): number {
     const r = (color >> 16) & 0xff;
     const g = (color >> 8) & 0xff;
@@ -292,14 +411,11 @@ export class BoardView {
     return this.sprites.get(index);
   }
 
-  /** 放置预览高亮（单格）。 */
+  // ————————————————— 预览 / 高亮 —————————————————
   showPlacementPreview(index: number, valid: boolean): void {
     this.showFootprintPreview(index >= 0 ? [index] : null, valid, index);
   }
 
-  /**
-   * 多格占地放置预览。cells 为 null 表示越界（在 anchor 处画一个非法格）。
-   */
   showFootprintPreview(
     cells: number[] | null,
     valid: boolean,
@@ -308,11 +424,9 @@ export class BoardView {
     this.highlightGfx.clear();
     const color = valid ? THEME.validGreen : THEME.invalidRed;
     const draw = (index: number) => {
-      const { x, y } = cellTopLeft(index);
-      this.highlightGfx.fillStyle(color, 0.3);
-      this.highlightGfx.fillRect(x + 1, y + 1, TILE_DISPLAY - 2, TILE_DISPLAY - 2);
-      this.highlightGfx.lineStyle(3, color, 0.9);
-      this.highlightGfx.strokeRect(x + 2, y + 2, TILE_DISPLAY - 4, TILE_DISPLAY - 4);
+      const d = cellDiamond(index);
+      this.fillDiamond(this.highlightGfx, d, color, 0.32);
+      this.strokeDiamond(this.highlightGfx, d, color, 0.95, 3);
     };
     if (!cells) {
       if (anchorForOOB >= 0) draw(anchorForOOB);
@@ -325,14 +439,12 @@ export class BoardView {
     this.highlightGfx.clear();
   }
 
-  /** 高亮某格四邻（放置/选中时展示影响范围）。 */
   showAdjacency(index: number, neighborIndices: number[]): void {
     this.overlayGfx.clear();
     if (index < 0) return;
     for (const n of neighborIndices) {
-      const { x, y } = cellTopLeft(n);
-      this.overlayGfx.lineStyle(2, THEME.accent, 0.8);
-      this.overlayGfx.strokeRect(x + 4, y + 4, TILE_DISPLAY - 8, TILE_DISPLAY - 8);
+      const d = cellDiamond(n);
+      this.strokeDiamond(this.overlayGfx, d, THEME.accent, 0.8, 2);
     }
   }
 
@@ -340,12 +452,10 @@ export class BoardView {
     this.overlayGfx.clear();
   }
 
-  /** 选中框。 */
   showSelection(index: number): void {
     this.overlayGfx.clear();
     if (index < 0) return;
-    const { x, y } = cellTopLeft(index);
-    this.overlayGfx.lineStyle(3, 0xffd54f, 1);
-    this.overlayGfx.strokeRect(x + 2, y + 2, TILE_DISPLAY - 4, TILE_DISPLAY - 4);
+    const d = cellDiamond(index);
+    this.strokeDiamond(this.overlayGfx, d, 0xffd54f, 1, 3);
   }
 }

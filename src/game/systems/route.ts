@@ -2,28 +2,37 @@ import { BOARD_SIZE, indexOf } from "../config";
 import { neighborIndices } from "./grid";
 
 /**
- * 固定游客路线（独立道路）。
+ * 固定游客路线（独立道路）——蜿蜒盘桓的园区主路。
  * 道路格不可放置建筑；建筑只能放在道路旁的空地上。
- * 游客沿道路前进，经过某道路格时，会触发与其相邻的建筑。
+ * 游客沿主路前进，经过某道路格时会触发与其相邻的建筑。
+ * 主路多次上下折返，使不同空地的「服务顺序」差异明显：
+ * 越早被经过（游客钱包足、体力好）越肥；越靠后越瘦——形成放置策略。
  * 无 A* 寻路，顺序稳定，可复现。
  *
  * 布局（■=道路，□=可建造），8 列 × 6 行：
- *   y0: □ □ □ □ □ □ □ □
- *   y1: ■ ■ ■ ■ ■ ■ ■ ■   ← 上层走廊（入口在最左）
- *   y2: □ □ □ □ □ □ □ ■
- *   y3: □ □ □ □ □ □ □ ■   ← 右侧竖直连接段
- *   y4: ■ ■ ■ ■ ■ ■ ■ ■   ← 下层走廊（出口在最左）
- *   y5: □ □ □ □ □ □ □ □
+ *   y0: ▶ □ □ ■ ■ ■ ■ □
+ *   y1: ■ □ □ ■ □ □ ■ □
+ *   y2: ■ □ □ ■ □ □ ■ □
+ *   y3: ■ □ □ ■ □ □ ■ □
+ *   y4: ■ □ □ ■ □ □ ■ □
+ *   y5: ■ ■ ■ ■ □ □ ◀ □
+ * 入口在 (0,0)，出口在 (6,5)。左袋 x1~2、中袋 x4~5 均为 2 格宽（可放多格建筑），
+ * 右侧 x7 为 1 格宽窄条（服务顺序最靠后）。
  */
 function buildRoute(): number[] {
   const route: number[] = [];
-  // 上层走廊：y=1，从左到右
-  for (let x = 0; x < 8; x++) route.push(indexOf(x, 1));
-  // 右侧竖直连接段：y=2,3
-  route.push(indexOf(7, 2));
-  route.push(indexOf(7, 3));
-  // 下层走廊：y=4，从右到左
-  for (let x = 7; x >= 0; x--) route.push(indexOf(x, 4));
+  // 第 0 列向下（入口 0,0 → 0,5）
+  for (let y = 0; y <= 5; y++) route.push(indexOf(0, y));
+  // 底部向右连接到第 3 列
+  route.push(indexOf(1, 5));
+  route.push(indexOf(2, 5));
+  // 第 3 列向上（3,5 → 3,0）
+  for (let y = 5; y >= 0; y--) route.push(indexOf(3, y));
+  // 顶部向右连接到第 6 列
+  route.push(indexOf(4, 0));
+  route.push(indexOf(5, 0));
+  // 第 6 列向下（6,0 → 出口 6,5）
+  for (let y = 0; y <= 5; y++) route.push(indexOf(6, y));
   return route;
 }
 

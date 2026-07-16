@@ -33,19 +33,19 @@ describe("坐标与邻接", () => {
 describe("放置合法性", () => {
   it("占用格不可再放置", () => {
     const s = newGame(1);
-    forcePlace(s, "pill-shop", 2, 2);
-    expect(canPlaceAt(s, indexOf(2, 2)).ok).toBe(false);
-    expect(canPlaceAt(s, indexOf(3, 2)).ok).toBe(true);
+    forcePlace(s, "pill-shop", 1, 1);
+    expect(canPlaceAt(s, indexOf(1, 1)).ok).toBe(false);
+    expect(canPlaceAt(s, indexOf(2, 1)).ok).toBe(true);
   });
 
   it("道路格不可放置建筑", () => {
     const s = newGame(1);
-    // y=1 与 y=4 为道路走廊
+    // 第 0/3/6 列为竖直道路
     expect(isRoad(indexOf(3, 1))).toBe(true);
     expect(canPlaceAt(s, indexOf(3, 1)).ok).toBe(false);
-    // y=0 为可建造空地
-    expect(isRoad(indexOf(3, 0))).toBe(false);
-    expect(canPlaceAt(s, indexOf(3, 0)).ok).toBe(true);
+    // 左袋 (1,1) 为可建造空地
+    expect(isRoad(indexOf(1, 1))).toBe(false);
+    expect(canPlaceAt(s, indexOf(1, 1)).ok).toBe(true);
   });
 });
 
@@ -61,27 +61,27 @@ describe("多格占地与旋转", () => {
   it("占地任一格落在道路上则不可放置", () => {
     const s = newGame(1);
     const def = getBuildingDef("thunder-tower"); // 1×2
-    // (0,0) 竖直占 (0,0)(0,1)，(0,1) 是道路 → 非法
-    expect(canPlaceFootprint(s, indexOf(0, 0), def, 0).ok).toBe(false);
-    // (0,2) 占 (0,2)(0,3) 均空地 → 合法
-    expect(canPlaceFootprint(s, indexOf(0, 2), def, 0).ok).toBe(true);
+    // (1,4) 竖直占 (1,4)(1,5)，(1,5) 是道路 → 非法
+    expect(canPlaceFootprint(s, indexOf(1, 4), def, 0).ok).toBe(false);
+    // (1,1) 占 (1,1)(1,2) 均空地 → 合法
+    expect(canPlaceFootprint(s, indexOf(1, 1), def, 0).ok).toBe(true);
   });
 
   it("占地重叠时不可放置", () => {
     const s = newGame(1);
-    forcePlace(s, "sword-coaster", 2, 2); // 占 (2,2)(3,2)
+    forcePlace(s, "sword-coaster", 1, 1); // 占 (1,1)(2,1)
     const def = getBuildingDef("pill-shop");
-    expect(canPlaceFootprint(s, indexOf(3, 2), def, 0).ok).toBe(false);
-    expect(canPlaceFootprint(s, indexOf(4, 2), def, 0).ok).toBe(true);
+    expect(canPlaceFootprint(s, indexOf(2, 1), def, 0).ok).toBe(false);
+    expect(canPlaceFootprint(s, indexOf(4, 1), def, 0).ok).toBe(true);
   });
 
   it("多格建筑与相邻聚灵阵联动（相邻任一占地格即可）", () => {
     const s = newGame(1);
-    forcePlace(s, "sword-coaster", 2, 2); // 2×1 占 (2,2)(3,2)
-    forcePlace(s, "spirit-gathering-array", 4, 2); // 邻接 (3,2)
+    forcePlace(s, "sword-coaster", 1, 1); // 2×1 占 (1,1)(2,1)
+    forcePlace(s, "spirit-gathering-array", 2, 2); // 邻接 (2,1)
     const params = computeBuildingParams(s);
     const coaster = [...params.values()].find(
-      (p) => p.index === indexOf(2, 2),
+      (p) => p.index === indexOf(1, 1),
     )!;
     const bonus = coaster.additive.find((a) => a.sourceId === "聚灵阵");
     expect(bonus?.value).toBeCloseTo(0.15, 5);
@@ -91,10 +91,10 @@ describe("多格占地与旋转", () => {
 describe("聚灵阵相邻加成", () => {
   it("相邻建筑获得 +15% 加成", () => {
     const s = newGame(1);
-    forcePlace(s, "pill-shop", 2, 2);
-    forcePlace(s, "spirit-gathering-array", 3, 2); // 右邻
+    forcePlace(s, "pill-shop", 1, 1);
+    forcePlace(s, "spirit-gathering-array", 2, 1); // 右邻
     const params = computeBuildingParams(s);
-    const shopIdx = indexOf(2, 2);
+    const shopIdx = indexOf(1, 1);
     const shop = [...params.values()].find(
       (p) => p.index === shopIdx,
     )!;
@@ -105,10 +105,10 @@ describe("聚灵阵相邻加成", () => {
 
   it("不相邻则无加成", () => {
     const s = newGame(1);
-    forcePlace(s, "pill-shop", 0, 0);
+    forcePlace(s, "pill-shop", 1, 1);
     forcePlace(s, "spirit-gathering-array", 5, 5);
     const params = computeBuildingParams(s);
-    const shop = [...params.values()].find((p) => p.index === indexOf(0, 0))!;
+    const shop = [...params.values()].find((p) => p.index === indexOf(1, 1))!;
     expect(shop.additiveTotal).toBe(0);
   });
 });
@@ -116,10 +116,10 @@ describe("聚灵阵相邻加成", () => {
 describe("雷池全局加成", () => {
   it("雷系建筑获得全局 +30%（即使不相邻）", () => {
     const s = newGame(1);
-    forcePlace(s, "thunder-tower", 0, 2); // 1×2 → 占 (0,2)(0,3)
+    forcePlace(s, "thunder-tower", 1, 1); // 1×2 → 占 (1,1)(1,2)
     forcePlace(s, "thunder-pond", 7, 5);
     const params = computeBuildingParams(s);
-    const tower = [...params.values()].find((p) => p.index === indexOf(0, 2))!;
+    const tower = [...params.values()].find((p) => p.index === indexOf(1, 1))!;
     const bonus = tower.additive.find((a) => a.sourceId === "雷池");
     expect(bonus?.value).toBeCloseTo(0.3, 5);
   });

@@ -1,6 +1,18 @@
 import Phaser from "phaser";
 import { getBuildingDef } from "../data/buildings";
-import type { GameState } from "../models/game-state";
+import { getDailyEvent } from "../data/daily-events";
+import type { GameState, PresentationEvent } from "../models/game-state";
+import type { Sect } from "../models/visitor";
+import {
+  complaintQuote,
+  dailyEventQuote,
+  daySummaryQuote,
+  disabledQuote,
+  greetingQuote,
+  praiseQuote,
+  sectColor,
+  thunderQuote,
+} from "../data/visitor-quotes";
 import { DESIGN_WIDTH } from "../config";
 import { DEPTH, FONT_FAMILY, THEME } from "../theme";
 import {
@@ -43,6 +55,7 @@ import { HandDetailPanel } from "../../ui/HandDetailPanel";
 import { DetailPanel } from "../../ui/DetailPanel";
 import { DebugPanel } from "../../ui/DebugPanel";
 import { Button } from "../../ui/Button";
+import { WorldChatBox } from "../../ui/WorldChatBox";
 
 export class ParkScene extends Phaser.Scene {
   private state!: GameState;
@@ -58,6 +71,11 @@ export class ParkScene extends Phaser.Scene {
   private debug!: DebugPanel;
   private anim!: AnimationPlayer;
   private fx!: Fx;
+  private chat!: WorldChatBox;
+
+  /** 世界聊天框：营业期间按节奏推送的游客反馈队列与定时器。 */
+  private feedbackQueue: Array<{ text: string; color: number }> = [];
+  private feedbackTimer?: Phaser.Time.TimerEvent;
 
   private selectedBuildingId: string | null = null;
   private placementRotation = 0;
@@ -116,6 +134,7 @@ export class ParkScene extends Phaser.Scene {
     );
     this.cardDetail = new HandDetailPanel(this);
     this.detail = new DetailPanel(this);
+    this.chat = new WorldChatBox(this);
     this.anim = new AnimationPlayer(this);
     this.debug = new DebugPanel(
       this,
@@ -142,6 +161,10 @@ export class ParkScene extends Phaser.Scene {
 
     // 页面隐藏时存档
     this.game.events.on(Phaser.Core.Events.HIDDEN, () => this.autosave());
+    // 场景关闭时清理反馈定时器，避免回调访问已销毁对象
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
+      this.stopFeedbackStream(false),
+    );
   }
 
   // ————————————————— 顶栏操作按钮 —————————————————
@@ -393,6 +416,8 @@ export class ParkScene extends Phaser.Scene {
     this.gauge.beginLiveEarnings(this.state.spiritStones, this.state.day);
     // 右上刺激度进入实时积累模式
     this.thrill.beginLive(this.state.thrill);
+    // 右下角世界聊天框：把本次营业的游客反馈按节奏滚动播出
+    this.startFeedbackStream(result.events);
 
     this.anim.play({
       state: this.state,
@@ -407,6 +432,8 @@ export class ParkScene extends Phaser.Scene {
     this.isAnimating = false;
     this.speedBtn.setVisible(false);
     this.skipBtn.setVisible(false);
+    // 营业结束：把尚未播完的反馈（含当日总结）一次性补齐
+    this.stopFeedbackStream(true);
     this.gauge.endLiveEarnings(); // 退出实时模式，下方 refreshAll 以真实结算值收敛
     this.thrill.endLive();
 
@@ -431,6 +458,7 @@ export class ParkScene extends Phaser.Scene {
   }
 
   private goResult(): void {
+    this.stopFeedbackStream(false);
     this.autosave();
     this.cameras.main.fadeOut(300, 166, 220, 242);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -483,6 +511,119 @@ export class ParkScene extends Phaser.Scene {
     this.hud.showToast(
       `刺激度爆发！收益翻倍 ${Math.round(BALANCE.thrillMeter.frenzyMs / 1000)} 秒`,
     );
+  }
+
+  // ————————————————— 世界聊天框（游客反馈）—————————————————
+  /** 从结算事件生成反馈流，并按营业节奏定时滚动播出。 */
+  private startFeedbackStream(events: PresentationEvent[]): void {
+    this.stopFeedbackStream(false);
+    this.feedbackQueue = this.buildFeedbackLines(events);
+    const interval = Math.max(160, Math.round(460 / this.settings.animationSpeed));
+    this.feedbackTimer = this.time.addEvent({
+      delay: interval,
+      loop: true,
+      callback: () => {
+        const line = this.feedbackQueue.shift();
+        if (!line) {
+          this.stopFeedbackStream(false);
+          return;
+        }
+        this.chat.push(line.text, line.color);
+      },
+    });
+  }
+
+  /** 停止反馈流；flush=true 时把剩余消息（含当日总结）立即补齐显示。 */
+  private stopFeedbackStream(flush: boolean): void {
+    this.feedbackTimer?.remove();
+    this.feedbackTimer = undefined;
+    if (flush) {
+      for (const line of this.feedbackQueue) this.chat.push(line.text, line.color);
+    }
+    this.feedbackQueue = [];
+  }
+
+  /** 把表现事件翻译成一串带颜色（门派色/公告金）的世界频道消息。 */
+  private buildFeedbackLines(
+    events: PresentationEvent[],
+  ): Array<{ text: string; color: number }> {
+    const lines: Array<{ text: string; color: number }> = [];
+    const sectOf = new Map<string, Sect>();
+    const nameOf = new Map<string, string>();
+    for (const inst of this.state.board) {
+      if (inst) nameOf.set(inst.instanceId, getBuildingDef(inst.definitionId).name);
+    }
+    const GOLD = 0xffd45c;
+    const DANGER = 0xff6767;
+    let lastSect: Sect | null = null;
+    let lastBuilding = "园区";
+
+    for (const ev of events) {
+      switch (ev.type) {
+        case "dayStarted": {
+          const def = getDailyEvent(ev.eventId);
+          if (ev.eventId && ev.eventId !== "none") {
+            lines.push({ text: dailyEventQuote(def.name), color: GOLD });
+          }
+          break;
+        }
+        case "visitorSpawned": {
+          sectOf.set(ev.visitorId, ev.sect);
+          if (Math.random() < 0.16) {
+            lines.push({ text: greetingQuote(ev.sect), color: sectColor(ev.sect) });
+          }
+          break;
+        }
+        case "purchase": {
+          const sect = sectOf.get(ev.visitorId) ?? null;
+          const name = nameOf.get(ev.buildingInstanceId) ?? "园区";
+          lastSect = sect;
+          lastBuilding = name;
+          if (sect && Math.random() < 0.3) {
+            lines.push({
+              text: praiseQuote(sect, name, ev.amount),
+              color: sectColor(sect),
+            });
+          }
+          break;
+        }
+        case "satisfactionChanged": {
+          const sect = sectOf.get(ev.visitorId) ?? null;
+          if (sect && ev.delta < 0 && Math.random() < 0.22) {
+            lines.push({ text: complaintQuote(sect), color: sectColor(sect) });
+          }
+          break;
+        }
+        case "thunder": {
+          const name = nameOf.get(ev.buildingInstanceId) ?? lastBuilding;
+          const sect = lastSect ?? "demonic";
+          if (Math.random() < 0.6) {
+            lines.push({ text: thunderQuote(sect, name), color: sectColor(sect) });
+          }
+          break;
+        }
+        case "buildingDisabled": {
+          const name = nameOf.get(ev.buildingInstanceId) ?? "某设施";
+          lines.push({ text: disabledQuote(name), color: DANGER });
+          break;
+        }
+        case "negativeEvent": {
+          const def = getDailyEvent(ev.eventId);
+          lines.push({ text: dailyEventQuote(def.name), color: DANGER });
+          break;
+        }
+        case "dayCompleted": {
+          lines.push({
+            text: daySummaryQuote(this.state.day, ev.revenue),
+            color: GOLD,
+          });
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    return lines;
   }
 
   // ————————————————— 通用刷新/存档 —————————————————

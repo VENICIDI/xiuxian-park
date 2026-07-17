@@ -10,6 +10,7 @@ import { GuidePanel } from "../../ui/GuidePanel";
 
 export class MainMenuScene extends Phaser.Scene {
   private guide?: GuidePanel;
+  private storyShowing = false;
 
   constructor() {
     super("MainMenu");
@@ -69,7 +70,7 @@ export class MainMenuScene extends Phaser.Scene {
       width: 240,
       height: 56,
       fontSize: 24,
-      onClick: () => this.startGame(false),
+      onClick: () => this.showStory(),
     });
 
     const cont = new Button(this, cx, 440, "继续游戏", {
@@ -100,6 +101,101 @@ export class MainMenuScene extends Phaser.Scene {
         },
       )
       .setOrigin(0.5);
+  }
+
+  /** 点击「新的游戏」：先播放背景故事漫画，再进入游戏。 */
+  private showStory(): void {
+    if (this.storyShowing) return;
+    this.storyShowing = true;
+    audio.unlock();
+
+    const cx = DESIGN_WIDTH / 2;
+    const cy = DESIGN_HEIGHT / 2;
+    const layer: Phaser.GameObjects.GameObject[] = [];
+
+    const overlay = this.add
+      .rectangle(cx, cy, DESIGN_WIDTH, DESIGN_HEIGHT, 0x120a1e, 1)
+      .setDepth(200)
+      .setAlpha(0)
+      .setInteractive();
+    layer.push(overlay);
+
+    // 背景故事大图，铺满整个画布（无黑边）
+    const img = this.add
+      .image(cx, cy, "story-bg")
+      .setDepth(201)
+      .setDisplaySize(DESIGN_WIDTH, DESIGN_HEIGHT)
+      .setAlpha(0);
+    const baseScaleX = img.scaleX;
+    const baseScaleY = img.scaleY;
+    layer.push(img);
+
+    // 屏幕右下角一个低调的黄色箭头（无边框），点击进入游戏
+    const arrowX = DESIGN_WIDTH - 40;
+    const arrowY = DESIGN_HEIGHT - 40;
+    const arrow = this.add
+      .text(arrowX, arrowY, "➤", {
+        fontFamily: FONT_FAMILY,
+        fontSize: "44px",
+        color: THEME.textGold,
+      })
+      .setOrigin(0.5)
+      .setDepth(202)
+      .setAlpha(0)
+      .setShadow(0, 2, "#000000", 6, false, true)
+      .setInteractive({ useHandCursor: true });
+    arrow.on("pointerover", () => arrow.setScale(1.18));
+    arrow.on("pointerout", () => arrow.setScale(1));
+    arrow.on("pointerdown", () => finish());
+    layer.push(arrow);
+
+    // 淡入
+    this.tweens.add({ targets: overlay, alpha: 1, duration: 260, ease: "Quad.easeOut" });
+    this.tweens.add({
+      targets: [img, arrow],
+      alpha: 1,
+      duration: 340,
+      delay: 140,
+      ease: "Quad.easeOut",
+    });
+    this.tweens.add({
+      targets: img,
+      scaleX: { from: baseScaleX * 0.985, to: baseScaleX },
+      scaleY: { from: baseScaleY * 0.985, to: baseScaleY },
+      duration: 480,
+      delay: 140,
+      ease: "Quad.easeOut",
+    });
+    // 箭头轻微呼吸，暗示可点击
+    this.tweens.add({
+      targets: arrow,
+      x: arrowX + 6,
+      duration: 720,
+      delay: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    const keydown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "Escape") finish();
+    };
+    window.addEventListener("keydown", keydown);
+
+    const finish = (): void => {
+      window.removeEventListener("keydown", keydown);
+      this.tweens.add({
+        targets: layer,
+        alpha: 0,
+        duration: 220,
+        ease: "Quad.easeIn",
+        onComplete: () => {
+          for (const obj of layer) obj.destroy();
+          this.storyShowing = false;
+          this.startGame(false);
+        },
+      });
+    };
   }
 
   private startGame(continueGame: boolean): void {

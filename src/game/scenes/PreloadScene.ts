@@ -10,6 +10,7 @@ import bMengpoTeaUrl from "../../assets/building-mengpo-tea.png";
 import bYellowSpringDriftUrl from "../../assets/building-yellow-spring-drift.png";
 import bYellowSpringDriftRotUrl from "../../assets/building-yellow-spring-drift-rot.png";
 import visitorUrl from "../../assets/visitor.png";
+import storyUrl from "../../assets/游戏背景故事.png";
 
 /**
  * 需要运行时抠背景的建筑贴图 key（源图为品红/白底、无 alpha 时的兜底）。
@@ -67,6 +68,8 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image("b-yellow-spring-drift-rot", bYellowSpringDriftRotUrl);
     // 游客正式美术（离线抠透明底 PNG），覆盖程序化占位小人
     this.load.image("visitor", visitorUrl);
+    // 开局背景故事漫画（点击「新的游戏」时展示）
+    this.load.image("story-bg", storyUrl);
   }
 
   create(): void {

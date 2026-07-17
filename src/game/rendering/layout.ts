@@ -7,30 +7,32 @@ import {
 } from "../config";
 
 /**
- * 屏幕分区（1280×720）：顶部 HUD 10% / 地图 65% / 右侧面板 25%，其余为页面边距。
+ * 屏幕分区（1280×720）：顶部 HUD 10% / 中部全宽地图 / 底部三张建筑卡坞。
+ * 右上角浮置「开始营业 / 速度 / 跳过」操作按钮（见 ParkScene）。
  */
 export const HUD_H = Math.round(DESIGN_HEIGHT * 0.1); // 72（顶部 10%）
 export const MARGIN = 24; // 页面呼吸边距（规范十八）
 
+/** 顶栏右侧操作区（开始营业 / 速度 / 跳过），事件牌需在此左侧收边。 */
+export const HUD_CTRL_RIGHT = DESIGN_WIDTH - 12; // 1268
+export const HUD_CTRL_X = DESIGN_WIDTH - 12 - 204; // 1064（预留宽度 204）
+
+/** 中部地图区（右侧图鉴移除后铺满整宽）。 */
 export const MAP_X = MARGIN; // 24
-export const MAP_W = Math.round(DESIGN_WIDTH * 0.65); // 832（地图 65%）
+export const MAP_W = DESIGN_WIDTH - MARGIN * 2; // 1232（全宽）
 
-export const PANEL_W = Math.round(DESIGN_WIDTH * 0.25); // 320（右侧 25%）
-export const PANEL_X = DESIGN_WIDTH - MARGIN - PANEL_W; // 936
-export const PANEL_Y = HUD_H + 16; // 88
-export const PANEL_H = DESIGN_HEIGHT - PANEL_Y - MARGIN; // 608
+/** 底部建筑卡坞（横排 3 张手牌，紧凑小卡）。 */
+export const HAND_H = 100;
+export const HAND_MARGIN_BOTTOM = 16;
+export const HAND_X = MARGIN; // 24
+export const HAND_W = DESIGN_WIDTH - MARGIN * 2; // 1232
+export const HAND_Y = DESIGN_HEIGHT - HAND_MARGIN_BOTTOM - HAND_H; // 562
 
-/** 底部操作栏（位于地图列底部）。 */
-export const BAR_H = 60;
-export const BAR_X = MAP_X;
-export const BAR_W = MAP_W;
-export const BAR_Y = DESIGN_HEIGHT - MARGIN - BAR_H; // 636
-
-/** 左侧地图游玩区（用于输入命中的矩形包围盒）。 */
+/** 地图游玩区（用于输入命中的矩形包围盒），止于手牌坞上沿。 */
 export const PLAY_X = 0;
 export const PLAY_Y = HUD_H;
-export const PLAY_W = MAP_X + MAP_W + 24; // 覆盖地图列
-export const PLAY_H = DESIGN_HEIGHT - HUD_H;
+export const PLAY_W = DESIGN_WIDTH;
+export const PLAY_H = HAND_Y - HUD_H;
 
 /**
  * 45° 伪等距（2:1 菱形）投影布局。
@@ -46,12 +48,12 @@ export const HALF_W = TILE_W / 2;
 export const HALF_H = TILE_H / 2;
 
 /**
- * 投影原点（网格角 (0,0) 的屏幕位置），使放大后的棋盘在地图列内水平居中、
- * 垂直留出顶部建筑高度与底部厚土台的空间。
- * 地图列中心 x = MAP_X + MAP_W/2 = 440；菱形中心相对原点偏移 +HALF_W，故 ORIGIN_X = 440 - HALF_W。
+ * 投影原点（网格角 (0,0) 的屏幕位置），使棋盘在全宽画布内水平居中、
+ * 垂直位于 HUD 与底部建筑卡坞之间，并留出顶部建筑高度与底部厚土台的空间。
+ * 画布中心 x = DESIGN_WIDTH/2 = 640；菱形中心相对原点偏移 +HALF_W，故 ORIGIN_X = 640 - HALF_W。
  */
-export const ORIGIN_X = 386;
-export const ORIGIN_Y = 196;
+export const ORIGIN_X = 586;
+export const ORIGIN_Y = 156;
 
 export type Pt = { x: number; y: number };
 

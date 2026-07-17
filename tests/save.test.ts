@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SaveService, DEFAULT_SETTINGS } from "../src/game/services/SaveService";
-import { applyDraft, resolveDay } from "../src/game/controllers/TurnController";
+import { resolveDay } from "../src/game/controllers/TurnController";
 import { newGame } from "./helpers";
 
 // 简易 localStorage mock
@@ -44,15 +44,15 @@ describe("存档", () => {
   });
 
   it("读取的存档可继续推进天数", () => {
-    let s = newGame(2024);
-    const resolved = resolveDay(s);
-    s = resolved.nextState;
-    if (s.phase === "drafting") {
-      s = applyDraft(s, s.pendingDraft[0]);
-    }
+    const s0 = newGame(2024);
+    // 结算当天后应自动推进到第 2 天（无三选一弹窗）
+    const s = resolveDay(s0).nextState;
+    expect(s.day).toBe(2);
+    expect(s.phase).toBe("planning");
+    expect(s.ownedBuildingIds.length).toBe(3);
     SaveService.save(s, DEFAULT_SETTINGS);
     const res = SaveService.load();
     expect(res.ok).toBe(true);
-    if (res.ok) expect(res.envelope.state.day).toBeGreaterThanOrEqual(1);
+    if (res.ok) expect(res.envelope.state.day).toBe(2);
   });
 });

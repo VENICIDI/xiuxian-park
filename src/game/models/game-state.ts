@@ -5,7 +5,6 @@ export type GamePhase =
   | "planning"
   | "resolving"
   | "animating"
-  | "drafting"
   | "gameOver";
 
 export type RunStatistics = {
@@ -27,10 +26,9 @@ export type GameState = {
   visitorCount: number;
   /** 固定 48 项一维数组，索引 y*8+x */
   board: Array<BuildingInstance | null>;
-  /** 已拥有可放置的建筑定义 ID（手牌池） */
+  /** 当前底部可放置的建筑卡（固定 3 张手牌，每次过关随机刷新，可重复放置） */
   ownedBuildingIds: string[];
   activeEventId: string | null;
-  pendingDraft: string[];
   /** 下一天额外游客加成（招生广场等结算后效果累积） */
   nextDayVisitorBonus: number;
   statistics: RunStatistics;

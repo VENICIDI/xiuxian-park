@@ -1,9 +1,9 @@
 import Phaser from "phaser";
 import { getBuildingDef } from "../data/buildings";
 import type { GameState } from "../models/game-state";
+import { DESIGN_WIDTH } from "../config";
 import { DEPTH, FONT_FAMILY, THEME } from "../theme";
 import {
-  applyDraft,
   createNewGame,
   placeBuilding,
   removeBuilding,
@@ -24,10 +24,8 @@ import { Background } from "../rendering/Background";
 import { applyHiDpiCamera } from "../hidpi";
 import { Fx } from "../rendering/Fx";
 import {
-  BAR_H,
-  BAR_W,
-  BAR_X,
-  BAR_Y,
+  HUD_H,
+  HUD_CTRL_RIGHT,
   PLAY_X,
   PLAY_Y,
   PLAY_W,
@@ -36,10 +34,10 @@ import {
   indexAtWorld,
 } from "../rendering/layout";
 import { Hud } from "../../ui/Hud";
-import { SKIN, fantasyPanel, medallion } from "../../ui/skin";
-import { CatalogPanel } from "../../ui/CatalogPanel";
+import { SKIN } from "../../ui/skin";
+import { HandBar } from "../../ui/HandBar";
+import { HandDetailPanel } from "../../ui/HandDetailPanel";
 import { DetailPanel } from "../../ui/DetailPanel";
-import { DraftModal } from "../../ui/DraftModal";
 import { DebugPanel } from "../../ui/DebugPanel";
 import { Button } from "../../ui/Button";
 
@@ -49,9 +47,9 @@ export class ParkScene extends Phaser.Scene {
 
   private board!: BoardView;
   private hud!: Hud;
-  private catalog!: CatalogPanel;
+  private hand!: HandBar;
+  private cardDetail!: HandDetailPanel;
   private detail!: DetailPanel;
-  private draft!: DraftModal;
   private debug!: DebugPanel;
   private anim!: AnimationPlayer;
   private fx!: Fx;
@@ -102,9 +100,9 @@ export class ParkScene extends Phaser.Scene {
     this.board = new BoardView(this);
     this.fx = new Fx(this);
     this.hud = new Hud(this);
-    this.catalog = new CatalogPanel(this, (id) => this.selectBuilding(id));
+    this.hand = new HandBar(this, (id) => this.selectBuilding(id));
+    this.cardDetail = new HandDetailPanel(this);
     this.detail = new DetailPanel(this);
-    this.draft = new DraftModal(this);
     this.anim = new AnimationPlayer(this);
     this.debug = new DebugPanel(
       this,
@@ -119,16 +117,13 @@ export class ParkScene extends Phaser.Scene {
       },
     );
 
-    this.buildBottomBar();
+    this.buildControls();
     this.setupBoardInput();
     this.setupKeys();
 
     this.refreshAll();
 
-    // 若加载存档时正处于三选一阶段，直接恢复三选一
-    if (this.state.phase === "drafting" && this.state.pendingDraft.length > 0) {
-      this.openDraft();
-    } else if (this.state.phase === "gameOver") {
+    if (this.state.phase === "gameOver") {
       this.goResult();
     }
 
@@ -136,74 +131,79 @@ export class ParkScene extends Phaser.Scene {
     this.game.events.on(Phaser.Core.Events.HIDDEN, () => this.autosave());
   }
 
-  // ————————————————— UI 底栏 —————————————————
-  private buildBottomBar(): void {
-    const barCy = BAR_Y + BAR_H / 2;
-    // 仙侠玉牌操作坞
-    const g = this.add.graphics().setDepth(DEPTH.hud - 2);
-    fantasyPanel(g, BAR_X, BAR_Y, BAR_W, BAR_H);
+  // ————————————————— 顶栏操作按钮 —————————————————
+  private buildControls(): void {
+    // 顶部导航栏右侧：开始营业（金色主按钮，营业时切换为 速度 + 跳过）
+    const cy = Math.round(HUD_H / 2); // 顶栏垂直居中 = 36
+    const startW = 176;
+    const startX = HUD_CTRL_RIGHT - startW / 2; // 右对齐顶栏右缘
+    const skipW = 96;
+    const skipX = HUD_CTRL_RIGHT - skipW / 2;
+    const speedW = 92;
+    const speedX = skipX - skipW / 2 - 8 - speedW / 2; // 跳过左侧
 
-    // 左侧提示：卷轴图标章 + 文本
-    medallion(this, BAR_X + 30, barCy, 16, "📜", SKIN.jadeLight).setDepth(
-      DEPTH.hud,
-    );
-    this.hintText = this.add
-      .text(BAR_X + 56, BAR_Y + 13, "", {
-        fontFamily: FONT_FAMILY,
-        fontSize: "13px",
-        color: SKIN.textDim,
-        wordWrap: { width: BAR_W - 360 },
-      })
-      .setDepth(DEPTH.hud);
-
-    const startX = BAR_X + BAR_W - 120;
-
-    this.startBtn = new Button(this, startX, barCy, "开始营业", {
-      width: 210,
-      height: 48,
-      fontSize: 20,
+    this.startBtn = new Button(this, startX, cy, "开始营业", {
+      width: startW,
+      height: 44,
+      fontSize: 19,
       variant: "primary",
+      color: SKIN.gold,
+      hoverColor: 0xffe08a,
+      textColor: "#3a2a08",
       onClick: () => this.onStartBusiness(),
     });
-    this.startBtn.setDepth(DEPTH.hud);
+    this.startBtn.setDepth(DEPTH.hud + 3);
 
     // 主按钮灵气发光底（随按钮显隐，planning 阶段呼吸吸引点击）
     const glow = this.add
       .image(0, 0, "glow")
-      .setTint(THEME.green)
+      .setTint(SKIN.gold)
       .setBlendMode(Phaser.BlendModes.ADD)
-      .setScale(8, 3)
-      .setAlpha(0.32);
+      .setScale(7, 2.6)
+      .setAlpha(0.3);
     this.startBtn.addAt(glow, 0);
     this.tweens.add({
       targets: glow,
-      alpha: 0.12,
+      alpha: 0.1,
       duration: 1050,
       yoyo: true,
       repeat: -1,
       ease: "Sine.easeInOut",
     });
 
-    this.speedBtn = new Button(this, startX - 184, barCy, "速度 1×", {
-      width: 132,
-      height: 44,
-      fontSize: 17,
+    this.speedBtn = new Button(this, speedX, cy, "速度 1×", {
+      width: speedW,
+      height: 40,
+      fontSize: 15,
       variant: "secondary",
       color: SKIN.jade,
       hoverColor: SKIN.jadeLight,
       textColor: SKIN.textLight,
       onClick: () => this.toggleSpeed(),
     });
-    this.speedBtn.setDepth(DEPTH.hud).setVisible(false);
+    this.speedBtn.setDepth(DEPTH.hud + 3).setVisible(false);
 
-    this.skipBtn = new Button(this, startX, barCy, "跳过", {
-      width: 132,
-      height: 44,
-      fontSize: 17,
+    this.skipBtn = new Button(this, skipX, cy, "跳过", {
+      width: skipW,
+      height: 40,
+      fontSize: 15,
       variant: "danger",
       onClick: () => this.anim.skip(),
     });
-    this.skipBtn.setDepth(DEPTH.hud).setVisible(false);
+    this.skipBtn.setDepth(DEPTH.hud + 3).setVisible(false);
+
+    // 放置提示：浮于顶栏下方居中
+    this.hintText = this.add
+      .text(DESIGN_WIDTH / 2, HUD_H + 8, "", {
+        fontFamily: FONT_FAMILY,
+        fontSize: "14px",
+        color: SKIN.textDim,
+        align: "center",
+        stroke: "#0c1613",
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(DEPTH.hud + 1);
   }
 
   // ————————————————— 输入 —————————————————
@@ -261,8 +261,9 @@ export class ParkScene extends Phaser.Scene {
   private selectBuilding(id: string): void {
     this.selectedBuildingId = id;
     this.placementRotation = 0;
-    this.catalog.setSelected(id, this.state);
+    this.hand.setSelected(id, this.state);
     const def = getBuildingDef(id);
+    this.cardDetail.open(def);
     this.hintText.setText(
       `放置中：${def.name} ${def.size.w}×${def.size.h}（◈${def.baseCost}）— 点击放置，中键/R 旋转，右键/ESC 取消`,
     );
@@ -272,10 +273,11 @@ export class ParkScene extends Phaser.Scene {
   private cancelSelection(): void {
     this.selectedBuildingId = null;
     this.placementRotation = 0;
-    this.catalog.setSelected(null, this.state);
+    this.hand.setSelected(null, this.state);
+    this.cardDetail.close();
     this.board.clearHighlight();
     this.board.clearOverlay();
-    this.hintText.setText("点击右侧图鉴选择建筑，摆放好后点击「开始营业」。");
+    this.hintText.setText("点击下方建筑卡选择建筑，摆放好后点击右上角「开始营业」。");
   }
 
   private rotatePlacement(): void {
@@ -331,8 +333,8 @@ export class ParkScene extends Phaser.Scene {
       this.board.clearHighlight();
       this.board.clearOverlay();
       this.hud.update(this.state);
-      this.catalog.refresh(this.state);
-      this.catalog.setSelected(this.selectedBuildingId, this.state);
+      this.hand.refresh(this.state);
+      this.hand.setSelected(this.selectedBuildingId, this.state);
       this.autosave();
       // 灵石不足以再放置则自动取消
       const def = getBuildingDef(this.selectedBuildingId);
@@ -395,32 +397,15 @@ export class ParkScene extends Phaser.Scene {
     this.skipBtn.setVisible(false);
     this.state = nextState;
 
-    this.refreshAll();
+    this.refreshAll(); // 已推进到下一天：刷新棋盘/HUD/底部 3 张新建筑卡
     this.autosave(); // 结算后存档
     audio.playSfx("income");
 
     if (this.state.phase === "gameOver") {
       this.goResult();
     } else {
-      this.openDraft();
-    }
-  }
-
-  private openDraft(): void {
-    this.startBtn.setVisible(false);
-    this.draft.open(this.state.pendingDraft, (chosenId) => {
-      audio.playSfx("ui");
-      this.draft.close();
-      this.state = applyDraft(this.state, chosenId);
-      this.autosave(); // 三选一后存档
-      if (this.state.phase === "gameOver") {
-        this.goResult();
-        return;
-      }
-      this.startBtn.setVisible(true);
-      this.refreshAll();
       this.hud.showBanner(`第 ${this.state.day} 天`, THEME.textGold);
-    });
+    }
   }
 
   private goResult(): void {
@@ -463,13 +448,13 @@ export class ParkScene extends Phaser.Scene {
   private refreshAll(): void {
     this.board.refresh(this.state);
     this.hud.update(this.state);
-    this.catalog.refresh(this.state);
+    this.hand.refresh(this.state);
     this.debug.refresh();
     if (this.state.phase === "planning") {
       this.startBtn.setVisible(true);
       if (!this.selectedBuildingId) {
         this.hintText.setText(
-          "点击右侧图鉴选择建筑，摆放好后点击「开始营业」。",
+          "点击下方建筑卡选择建筑，摆放好后点击右上角「开始营业」。",
         );
       }
     }

@@ -13,8 +13,8 @@ const RARITY_WEIGHT: Record<BuildingRarity, number> = {
 };
 
 /**
- * 生成三选一候选（随机序列第 4 步）。
- * 按品质权重不重复抽取，优先未拥有的建筑，保证候选池不为空。
+ * 随机抽取一批建筑卡（用于底部 3 张手牌，每次过关刷新）。
+ * 按品质权重不重复抽取；传入 ownedIds 时优先排除，保证候选池不为空。
  */
 export function generateDraft(rng: RandomService, ownedIds: string[] = []): string[] {
   let pool = ALL_BUILDING_IDS.filter((id) => !ownedIds.includes(id));

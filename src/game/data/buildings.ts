@@ -271,12 +271,3 @@ export const getBuildingDef = (id: string): BuildingDefinition => {
 };
 
 export const ALL_BUILDING_IDS = BUILDING_DEFINITIONS.map((b) => b.id);
-
-/** 开局默认手牌：给玩家几张基础建筑起步。 */
-export const STARTER_BUILDING_IDS = [
-  "xian-park",
-  "pill-shop",
-  "sword-coaster",
-  "mengpo-tea",
-  "spirit-gathering-array",
-];

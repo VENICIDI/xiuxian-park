@@ -20,7 +20,7 @@ describe("确定性可复现", () => {
     expect(a.nextState.spiritStones).toBe(b.nextState.spiritStones);
     expect(a.nextState.rngCursor).toBe(b.nextState.rngCursor);
     expect(a.events.length).toBe(b.events.length);
-    expect(a.nextState.pendingDraft).toEqual(b.nextState.pendingDraft);
+    expect(a.nextState.ownedBuildingIds).toEqual(b.nextState.ownedBuildingIds);
   });
 
   it("不同种子通常产生不同结果", () => {

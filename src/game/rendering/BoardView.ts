@@ -91,7 +91,7 @@ export class BoardView {
 
   /** 园区底板：在地面菱形下方拉出两片侧壁，形成厚土台。 */
   private drawBaseSlab(g: Phaser.GameObjects.Graphics): void {
-    const D = 54; // 底板厚度
+    const D = 36; // 底板厚度
     const right = isoCorner(GRID_WIDTH, 0);
     const bottom = isoCorner(GRID_WIDTH, GRID_HEIGHT);
     const left = isoCorner(0, GRID_HEIGHT);

@@ -1,6 +1,6 @@
 import { BOARD_SIZE, SCHEMA_VERSION } from "../config";
 import { BALANCE } from "../data/balance";
-import { getBuildingDef, STARTER_BUILDING_IDS } from "../data/buildings";
+import { getBuildingDef } from "../data/buildings";
 import { getDailyEvent } from "../data/daily-events";
 import { MAX_LEVEL } from "../models/building";
 import type { GameState, PresentationEvent, RevenueBreakdown, SimulationResult } from "../models/game-state";
@@ -94,9 +94,8 @@ export function createNewGame(seed?: number): GameState {
     spiritStones: BALANCE.startingSpiritStones,
     visitorCount: BALANCE.baseVisitorCount,
     board: emptyBoard(),
-    ownedBuildingIds: [...STARTER_BUILDING_IDS],
+    ownedBuildingIds: [],
     activeEventId: null,
-    pendingDraft: [],
     nextDayVisitorBonus: 0,
     statistics: {
       totalRevenue: 0,
@@ -106,6 +105,10 @@ export function createNewGame(seed?: number): GameState {
       failureReason: null,
     },
   };
+  // 开局随机发放 3 张建筑卡
+  const rng = rngFor(base);
+  base.ownedBuildingIds = generateDraft(rng);
+  commitRng(base, rng);
   return startDay(base);
 }
 
@@ -220,32 +223,22 @@ export function resolveDay(state: GameState): SimulationResult {
     return { nextState: next, events, breakdowns };
   }
 
-  // —— 进入三选一
-  next.pendingDraft = generateDraft(rng, next.ownedBuildingIds);
-  next.phase = "drafting";
-
+  // —— 过关：随机刷新底部 3 张建筑卡
+  next.ownedBuildingIds = generateDraft(rng);
   commitRng(next, rng);
-  return { nextState: next, events, breakdowns };
-}
 
-/** 完成三选一并进入下一天（或触发终局胜利）。 */
-export function applyDraft(state: GameState, chosenId: string): GameState {
-  const next = clone(state);
-  if (chosenId && !next.ownedBuildingIds.includes(chosenId)) {
-    next.ownedBuildingIds.push(chosenId);
-  }
-  next.pendingDraft = [];
-
+  // —— 推进到下一天（或触发终局胜利）
   const nextDay = next.day + 1;
   if (nextDay > BALANCE.finalDay) {
     next.phase = "gameOver";
     next.statistics.failureReason = null; // null 表示通关胜利
     next.statistics.daysSurvived = next.day;
-    return next;
+    return { nextState: next, events, breakdowns };
   }
 
   next.day = nextDay;
-  return startDay(next);
+  const advanced = startDay(next);
+  return { nextState: advanced, events, breakdowns };
 }
 
 // —————————————————— Planning 阶段的棋盘编辑 ——————————————————

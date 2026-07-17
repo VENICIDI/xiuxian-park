@@ -83,7 +83,7 @@ export class DebugPanel {
         `游客: ${s.visitorCount}`,
         `事件: ${ev.name}`,
         `建筑数: ${s.board.filter(Boolean).length}`,
-        `图鉴数: ${s.ownedBuildingIds.length}`,
+        `手牌数: ${s.ownedBuildingIds.length}`,
         `累计收入: ${s.statistics.totalRevenue}`,
       ].join("\n"),
     );

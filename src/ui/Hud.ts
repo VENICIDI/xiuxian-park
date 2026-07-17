@@ -4,7 +4,7 @@ import { BALANCE } from "../game/data/balance";
 import { getDailyEvent } from "../game/data/daily-events";
 import type { GameState } from "../game/models/game-state";
 import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
-import { HUD_H } from "../game/rendering/layout";
+import { HUD_CTRL_X, HUD_H } from "../game/rendering/layout";
 import { SKIN, fantasyPanel, medallion } from "./skin";
 
 type Plaque = { x: number; w: number };
@@ -12,7 +12,8 @@ type Plaque = { x: number; w: number };
 const DAY: Plaque = { x: 12, w: 150 };
 const STONE: Plaque = { x: 170, w: 178 };
 const VISITOR: Plaque = { x: 356, w: 170 };
-const EVENT: Plaque = { x: 536, w: DESIGN_WIDTH - 12 - 536 };
+// 事件牌右侧收边，给顶栏操作区（开始营业等）让出空间
+const EVENT: Plaque = { x: 536, w: HUD_CTRL_X - 12 - 536 };
 const PLAQUE_Y = 8;
 const PLAQUE_H = HUD_H - 16;
 

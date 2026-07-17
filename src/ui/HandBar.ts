@@ -1,20 +1,30 @@
 import Phaser from "phaser";
 import { getBuildingDef } from "../game/data/buildings";
-import { RARITY_COLOR, RARITY_LABEL } from "../game/models/building";
-import type { BuildingCategory } from "../game/models/building";
+import { RARITY_COLOR } from "../game/models/building";
+import type { BuildingCategory, BuildingRarity } from "../game/models/building";
 import type { GameState } from "../game/models/game-state";
-import { DESIGN_WIDTH } from "../game/config";
+import { DESIGN_HEIGHT } from "../game/config";
 import { DEPTH, FONT_FAMILY } from "../game/theme";
-import { HAND_H, HAND_Y } from "../game/rendering/layout";
-import { SKIN } from "./skin";
+import { SKIN, fantasyPanel } from "./skin";
+import { Button } from "./Button";
 
-// 三张固定窄卡，水平居中，两侧留白（不再铺满整宽）。
-const CARD_W = 236;
-const CARD_H = 80;
-const GAP = 20;
-const ROW_W = CARD_W * 3 + GAP * 2;
-const ROW_X = Math.round((DESIGN_WIDTH - ROW_W) / 2);
-const CARD_CY = HAND_Y + HAND_H / 2;
+// 底部「商店栏」（缩小版，靠左下角）：面板内含三张竖版卡片 + 右侧刷新按钮。
+const CARD_W = 104;
+const CARD_H = 124;
+const GAP = 14;
+const REFRESH_W = 72; // 刷新按钮宽（与卡片等高的竖条）
+const GROUP_GAP = 14; // 卡片区与刷新按钮的间距
+const CONTENT_W = CARD_W * 3 + GAP * 2 + GROUP_GAP + REFRESH_W;
+const PANEL_PAD_X = 18;
+const PANEL_PAD_TOP = 12;
+const PANEL_PAD_BOTTOM = 12;
+const PANEL_W = CONTENT_W + PANEL_PAD_X * 2;
+const PANEL_X = 20; // 靠屏幕左缘
+const CARD_CY = DESIGN_HEIGHT - 16 - CARD_H / 2; // 卡底距屏幕底 16px
+const CONTENT_X = PANEL_X + PANEL_PAD_X; // 内容（首卡左缘）起始 x
+const PANEL_TOP = CARD_CY - CARD_H / 2 - PANEL_PAD_TOP;
+const PANEL_H = CARD_CY + CARD_H / 2 + PANEL_PAD_BOTTOM - PANEL_TOP;
+const REFRESH_X = CONTENT_X + CARD_W * 3 + GAP * 2 + GROUP_GAP + REFRESH_W / 2;
 const LIFT = 12; // 选中时向上抽出的距离
 const SEL_SCALE = 1.06;
 
@@ -25,11 +35,13 @@ const CAT_CHAR: Record<BuildingCategory, string> = {
   utility: "工",
 };
 
-const CAT_NAME: Record<BuildingCategory, string> = {
-  ride: "游乐设施",
-  shop: "商店",
-  buff: "增益法阵",
-  utility: "功能建筑",
+/** 品质对应星级（1~5 星）。 */
+const RARITY_STARS: Record<BuildingRarity, number> = {
+  common: 1,
+  uncommon: 2,
+  rare: 3,
+  epic: 4,
+  legendary: 5,
 };
 
 type CardRef = {
@@ -40,20 +52,45 @@ type CardRef = {
 };
 
 /**
- * 底部建筑卡坞（极简卡面）：只展示 图片 + 种类 + 品质。
- * 点击某张卡会放大并向上「抽出」，具体效果由右侧详情面板展示。
+ * 底部「商店栏」：面板内含三张竖版卡片（大图 + 名字 + 星级）与右侧刷新按钮。
+ * 点击某张卡会放大并向上「抽出」，具体效果由右侧详情面板展示；点击刷新重随三张手牌。
  */
 export class HandBar {
   private scene: Phaser.Scene;
+  private panel: Phaser.GameObjects.Graphics;
+  private refreshBtn: Button;
   private container: Phaser.GameObjects.Container;
   private cards = new Map<string, CardRef>();
   private selectedId: string | null = null;
   private onSelect: (id: string) => void;
 
-  constructor(scene: Phaser.Scene, onSelect: (id: string) => void) {
+  constructor(
+    scene: Phaser.Scene,
+    onSelect: (id: string) => void,
+    onRefresh: () => void,
+  ) {
     this.scene = scene;
     this.onSelect = onSelect;
+
+    // 商店栏底板（持久，不随手牌重建销毁）
+    this.panel = scene.add.graphics().setDepth(DEPTH.panel);
+    fantasyPanel(this.panel, PANEL_X, PANEL_TOP, PANEL_W, PANEL_H);
+
+    // 卡片容器（每次刷新只重建其中的卡片）
     this.container = scene.add.container(0, 0).setDepth(DEPTH.panel + 1);
+
+    // 右侧刷新按钮（与卡片等高的竖条）
+    this.refreshBtn = new Button(scene, REFRESH_X, CARD_CY, "刷新\n商店", {
+      width: REFRESH_W,
+      height: CARD_H,
+      fontSize: 15,
+      variant: "secondary",
+      color: SKIN.jade,
+      hoverColor: SKIN.jadeLight,
+      textColor: SKIN.textLight,
+      onClick: onRefresh,
+    });
+    this.refreshBtn.setDepth(DEPTH.panel + 1);
   }
 
   refresh(state: GameState): void {
@@ -65,12 +102,13 @@ export class HandBar {
     this.cards.clear();
 
     state.ownedBuildingIds.forEach((id, i) => {
-      const cx = ROW_X + i * (CARD_W + GAP) + CARD_W / 2;
+      const cx = CONTENT_X + i * (CARD_W + GAP) + CARD_W / 2;
       const cy = CARD_CY;
       const card = this.createCard(id, cx, cy, state);
       this.cards.set(id, card);
       this.container.add(card.container);
     });
+    this.refreshBtn.setEnabled(state.phase === "planning");
     this.updateSelectionVisuals(state);
   }
 
@@ -85,79 +123,70 @@ export class HandBar {
     const h = CARD_H;
     const container = this.scene.add.container(cx, cy);
     const rarityColor = RARITY_COLOR[def.rarity];
+    const rarityHex = `#${rarityColor.toString(16).padStart(6, "0")}`;
 
     const bg = this.scene.add.graphics();
     container.add(bg);
 
-    // 内容整体居中：[圆形图标] + [种类名 / 品质角标]
-    const r = h / 2 - 9;
-    const textBlockW = 74;
-    const groupW = r * 2 + 12 + textBlockW;
-    const iconCx = -groupW / 2 + r;
-    const textX = iconCx + r + 12;
-
-    // 图片 / 品类图标章（圆形玉盘 + 品质环）
-    const disc = this.scene.add.graphics();
-    disc.fillStyle(SKIN.edgeDark, 0.9);
-    disc.fillCircle(iconCx, 0, r + 3);
-    disc.fillStyle(rarityColor, 1);
-    disc.fillCircle(iconCx, 0, r + 2);
-    disc.fillStyle(SKIN.jade, 1);
-    disc.fillCircle(iconCx, 0, r);
-    disc.fillStyle(SKIN.jadeLight, 0.4);
-    disc.fillCircle(iconCx - r * 0.32, -r * 0.32, r * 0.55);
-    container.add(disc);
+    // —— 上部：建筑图片区（大图，圆角图槽 + 贴图 / 占位字）——
+    const picTop = -h / 2 + 6;
+    const picH = h - 48; // 下部留 48 给名字 + 星级
+    const picCy = picTop + picH / 2;
+    const pic = this.scene.add.graphics();
+    pic.fillStyle(SKIN.edgeDark, 0.5);
+    pic.fillRoundedRect(-w / 2 + 6, picTop, w - 12, picH, 7);
+    container.add(pic);
 
     if (def.sprite && this.scene.textures.exists(def.sprite)) {
-      const img = this.scene.add.image(iconCx, 0, def.sprite).setOrigin(0.5);
-      const box = r * 2;
-      img.setScale(Math.min(box / img.width, box / img.height));
+      const img = this.scene.add.image(0, picCy, def.sprite).setOrigin(0.5);
+      const boxW = w - 16;
+      const boxH = picH - 5;
+      img.setScale(Math.min(boxW / img.width, boxH / img.height));
       container.add(img);
     } else {
+      const r = picH / 2 - 4;
+      const disc = this.scene.add.graphics();
+      disc.fillStyle(rarityColor, 1);
+      disc.fillCircle(0, picCy, r + 2);
+      disc.fillStyle(SKIN.jade, 1);
+      disc.fillCircle(0, picCy, r);
+      disc.fillStyle(SKIN.jadeLight, 0.4);
+      disc.fillCircle(-r * 0.32, picCy - r * 0.32, r * 0.55);
+      container.add(disc);
       const ch = this.scene.add
-        .text(iconCx, 0, CAT_CHAR[def.category], {
+        .text(0, picCy, CAT_CHAR[def.category], {
           fontFamily: FONT_FAMILY,
           fontSize: `${Math.round(r * 0.95)}px`,
           color: "#f4f0e2",
           fontStyle: "bold",
         })
-        .setOrigin(0, 0.5);
-      ch.setX(iconCx - ch.width / 2);
+        .setOrigin(0.5);
       container.add(ch);
     }
 
-    // 种类名
+    // —— 下部：建筑名字 ——
+    const nameY = picTop + picH + 13;
     container.add(
       this.scene.add
-        .text(textX, -11, CAT_NAME[def.category], {
+        .text(0, nameY, def.name, {
           fontFamily: FONT_FAMILY,
-          fontSize: "15px",
+          fontSize: "13px",
           color: SKIN.textLight,
           fontStyle: "bold",
         })
-        .setOrigin(0, 0.5),
+        .setOrigin(0.5),
     );
 
-    // 品质小角标
-    const label = RARITY_LABEL[def.rarity];
-    const pillW = 40;
-    const pillH = 19;
-    const pill = this.scene.add.graphics();
-    pill.fillStyle(rarityColor, 1);
-    pill.fillRoundedRect(textX, 5, pillW, pillH, pillH / 2);
-    pill.fillStyle(0xffffff, 0.18);
-    pill.fillRoundedRect(textX + 2, 6, pillW - 4, pillH / 2 - 1, 5);
-    container.add(pill);
-    const pillText = this.scene.add
-      .text(textX, 5 + pillH / 2, label, {
-        fontFamily: FONT_FAMILY,
-        fontSize: "12px",
-        color: "#1a2320",
-        fontStyle: "bold",
-      })
-      .setOrigin(0, 0.5);
-    pillText.setX(textX + (pillW - pillText.width) / 2);
-    container.add(pillText);
+    // —— 星级（居中）——
+    container.add(
+      this.scene.add
+        .text(0, nameY + 16, "★".repeat(RARITY_STARS[def.rarity]), {
+          fontFamily: FONT_FAMILY,
+          fontSize: "12px",
+          color: rarityHex,
+        })
+        .setOrigin(0.5),
+    );
 
     container.setSize(w, h);
     container.setInteractive(

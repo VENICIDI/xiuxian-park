@@ -280,3 +280,12 @@ export function removeBuilding(state: GameState, index: number): ActionResult {
   state.board[positionToIndex(inst.position)] = null;
   return { ok: true, message: "已拆除" };
 }
+
+/** 刷新底部商店：重新随机三张手牌（免费）。 */
+export function refreshHand(state: GameState): ActionResult {
+  if (state.phase !== "planning") return { ok: false, message: "当前阶段不可刷新" };
+  const rng = rngFor(state);
+  state.ownedBuildingIds = generateDraft(rng);
+  commitRng(state, rng);
+  return { ok: true, message: "已刷新商店" };
+}

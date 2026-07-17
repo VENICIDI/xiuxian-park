@@ -52,10 +52,9 @@ export const HALF_H = TILE_H / 2;
  * 垂直位于 HUD 与底部建筑卡坞之间，并留出顶部建筑高度与底部厚土台的空间。
  * 水平：菱形包围盒中心 = ORIGIN_X + (W-H)*HALF_W/2，令其等于画布中心 640。
  */
-export const ORIGIN_X = Math.round(
-  DESIGN_WIDTH / 2 - ((GRID_WIDTH - GRID_HEIGHT) * HALF_W) / 2,
-);
-export const ORIGIN_Y = 150;
+export const ORIGIN_X =
+  Math.round(DESIGN_WIDTH / 2 - ((GRID_WIDTH - GRID_HEIGHT) * HALF_W) / 2) - 48;
+export const ORIGIN_Y = 116;
 
 export type Pt = { x: number; y: number };
 

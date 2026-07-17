@@ -6,6 +6,7 @@ import { DEPTH, FONT_FAMILY, THEME } from "../theme";
 import {
   createNewGame,
   placeBuilding,
+  refreshHand,
   removeBuilding,
   resolveDay,
 } from "../controllers/TurnController";
@@ -102,7 +103,11 @@ export class ParkScene extends Phaser.Scene {
     this.fx = new Fx(this);
     this.hud = new Hud(this);
     this.gauge = new PressureGauge(this);
-    this.hand = new HandBar(this, (id) => this.selectBuilding(id));
+    this.hand = new HandBar(
+      this,
+      (id) => this.selectBuilding(id),
+      () => this.doRefreshHand(),
+    );
     this.cardDetail = new HandDetailPanel(this);
     this.detail = new DetailPanel(this);
     this.anim = new AnimationPlayer(this);
@@ -338,6 +343,18 @@ export class ParkScene extends Phaser.Scene {
     } else {
       audio.playSfx("invalid");
       this.hud.showToast(res.message ?? "无法放置", true);
+    }
+  }
+
+  private doRefreshHand(): void {
+    if (this.isAnimating || this.state.phase !== "planning") return;
+    const res = refreshHand(this.state);
+    if (res.ok) {
+      audio.playSfx("ui");
+      this.cancelSelection();
+      this.hand.refresh(this.state);
+      this.hud.showToast(res.message ?? "已刷新商店");
+      this.autosave();
     }
   }
 

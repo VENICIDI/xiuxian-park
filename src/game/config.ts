@@ -12,7 +12,7 @@ export const DESIGN_WIDTH = 1280;
 export const DESIGN_HEIGHT = 720;
 
 /** 存档版本，结构变化时递增并处理迁移。 */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 export const GAME_VERSION = "0.1.0";
 export const SAVE_KEY = "xian-park:save:v1";
 

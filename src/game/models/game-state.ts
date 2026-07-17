@@ -24,6 +24,8 @@ export type GameState = {
   phase: GamePhase;
   spiritStones: number;
   visitorCount: number;
+  /** 刺激度仪表（0..max）：营业消费积累，满即触发收益翻倍狂欢；跨天保留余量 */
+  thrill: number;
   /** 固定 BOARD_SIZE 项一维数组，索引 y*GRID_WIDTH+x */
   board: Array<BuildingInstance | null>;
   /** 当前底部可放置的建筑卡（固定 3 张手牌，每次过关随机刷新，可重复放置） */

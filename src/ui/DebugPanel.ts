@@ -81,6 +81,7 @@ export class DebugPanel {
         `rngCursor: ${s.rngCursor}`,
         `day: ${s.day} / phase: ${s.phase}`,
         `灵石: ${s.spiritStones}`,
+        `刺激度: ${Math.round(s.thrill ?? 0)}`,
         `今日斩杀线: ${killLineForDay(s.day)}`,
         `游客: ${s.visitorCount}`,
         `事件: ${ev.name}`,

@@ -35,6 +35,8 @@ import {
 } from "../rendering/layout";
 import { Hud } from "../../ui/Hud";
 import { PressureGauge } from "../../ui/PressureGauge";
+import { ThrillGauge } from "../../ui/ThrillGauge";
+import { BALANCE } from "../data/balance";
 import { SKIN } from "../../ui/skin";
 import { HandBar } from "../../ui/HandBar";
 import { HandDetailPanel } from "../../ui/HandDetailPanel";
@@ -49,6 +51,7 @@ export class ParkScene extends Phaser.Scene {
   private board!: BoardView;
   private hud!: Hud;
   private gauge!: PressureGauge;
+  private thrill!: ThrillGauge;
   private hand!: HandBar;
   private cardDetail!: HandDetailPanel;
   private detail!: DetailPanel;
@@ -61,6 +64,8 @@ export class ParkScene extends Phaser.Scene {
   private hoverIndex = -1;
   private isAnimating = false;
   private coinSfxCounter = 0;
+  /** 本次营业狂欢期间累计的额外（翻倍）收益，动画结束后一次性入账。 */
+  private frenzyBonus = 0;
 
   private startBtn!: Button;
   private speedBtn!: Button;
@@ -103,6 +108,7 @@ export class ParkScene extends Phaser.Scene {
     this.fx = new Fx(this);
     this.hud = new Hud(this);
     this.gauge = new PressureGauge(this);
+    this.thrill = new ThrillGauge(this);
     this.hand = new HandBar(
       this,
       (id) => this.selectBuilding(id),
@@ -377,6 +383,7 @@ export class ParkScene extends Phaser.Scene {
     const result = resolveDay(this.state);
 
     this.isAnimating = true;
+    this.frenzyBonus = 0;
     this.startBtn.setVisible(false);
     this.speedBtn.setVisible(true).setText(`速度 ${this.settings.animationSpeed}×`);
     this.skipBtn.setVisible(true);
@@ -384,6 +391,8 @@ export class ParkScene extends Phaser.Scene {
 
     // 左侧仪表盘进入实时模式：以当天起始灵石为基准，随游客消费实时累加
     this.gauge.beginLiveEarnings(this.state.spiritStones, this.state.day);
+    // 右上刺激度进入实时积累模式
+    this.thrill.beginLive(this.state.thrill);
 
     this.anim.play({
       state: this.state,
@@ -399,6 +408,15 @@ export class ParkScene extends Phaser.Scene {
     this.speedBtn.setVisible(false);
     this.skipBtn.setVisible(false);
     this.gauge.endLiveEarnings(); // 退出实时模式，下方 refreshAll 以真实结算值收敛
+    this.thrill.endLive();
+
+    // 狂欢翻倍产生的额外收益一次性入账，并写回刺激度余量
+    if (this.frenzyBonus > 0) {
+      nextState.spiritStones += this.frenzyBonus;
+      nextState.statistics.totalRevenue += this.frenzyBonus;
+    }
+    nextState.thrill = this.thrill.getValue();
+    this.frenzyBonus = 0;
     this.state = nextState;
 
     this.refreshAll(); // 已推进到下一天：刷新棋盘/HUD/底部 3 张新建筑卡
@@ -422,13 +440,25 @@ export class ParkScene extends Phaser.Scene {
 
   // ————————————————— 特效 —————————————————
   private spawnCoin(x: number, y: number, amount: number, thunder: boolean): void {
-    // 实时把这笔收益累加到左侧仪表盘
-    this.gauge.addLiveEarnings(amount);
+    // 刺激度狂欢期间收益翻倍：额外部分累计，动画结束后入账
+    const frenzy = this.thrill.isFrenzyActive();
+    const credited = frenzy ? amount * BALANCE.thrillMeter.frenzyMultiplier : amount;
+    if (frenzy) this.frenzyBonus += credited - amount;
+
+    // 实时把这笔（可能翻倍的）收益累加到左侧仪表盘
+    this.gauge.addLiveEarnings(credited);
+
+    // 按基础收益积累刺激度；满 100 触发狂欢
+    const triggered = this.thrill.addThrill(amount);
+    if (triggered) this.onFrenzyStart(x, y);
+
     // 赚钱数字：黄色向上飘（规范十四/十六：地图持续"活着"）
-    if (thunder) {
-      this.fx.floatText(x, y - 8, `+${amount}`, "#b79dff", 22);
+    if (frenzy) {
+      this.fx.floatText(x, y - 8, `+${credited}`, "#ffd45c", 24);
+    } else if (thunder) {
+      this.fx.floatText(x, y - 8, `+${credited}`, "#b79dff", 22);
     } else {
-      this.fx.gain(x, y, amount, 18);
+      this.fx.gain(x, y, credited, 18);
     }
     this.fx.coinBurst(x, y);
     // 偶尔冒出满意表情，强化营业反馈循环
@@ -445,6 +475,16 @@ export class ParkScene extends Phaser.Scene {
     if (this.coinSfxCounter % 4 === 0) audio.playSfx("income");
   }
 
+  /** 刺激度爆表：进入收益翻倍狂欢的反馈。 */
+  private onFrenzyStart(x: number, y: number): void {
+    audio.playSfx("income");
+    this.fx.qiSpread(x, y);
+    this.fx.shake(120, 0.004);
+    this.hud.showToast(
+      `刺激度爆发！收益翻倍 ${Math.round(BALANCE.thrillMeter.frenzyMs / 1000)} 秒`,
+    );
+  }
+
   // ————————————————— 通用刷新/存档 —————————————————
   private toggleSpeed(): void {
     this.settings.animationSpeed = this.settings.animationSpeed === 1 ? 2 : 1;
@@ -455,6 +495,7 @@ export class ParkScene extends Phaser.Scene {
     this.board.refresh(this.state);
     this.hud.update(this.state);
     this.gauge.update(this.state);
+    this.thrill.update(this.state);
     this.hand.refresh(this.state);
     this.debug.refresh();
     if (this.state.phase === "planning") {

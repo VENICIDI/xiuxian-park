@@ -92,6 +92,7 @@ export function createNewGame(seed?: number): GameState {
     phase: "planning",
     spiritStones: BALANCE.startingSpiritStones,
     visitorCount: BALANCE.baseVisitorCount,
+    thrill: 0,
     board: emptyBoard(),
     ownedBuildingIds: [],
     activeEventId: null,

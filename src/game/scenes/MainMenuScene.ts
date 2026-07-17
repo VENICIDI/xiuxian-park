@@ -1,13 +1,16 @@
 import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../config";
-import { FONT_FAMILY, RADIUS, THEME } from "../theme";
+import { FONT_FAMILY, THEME } from "../theme";
 import { SaveService } from "../services/SaveService";
 import { audio } from "../services/AudioService";
 import { Background } from "../rendering/Background";
 import { applyHiDpiCamera } from "../hidpi";
 import { Button } from "../../ui/Button";
+import { GuidePanel } from "../../ui/GuidePanel";
 
 export class MainMenuScene extends Phaser.Scene {
+  private guide?: GuidePanel;
+
   constructor() {
     super("MainMenu");
   }
@@ -109,58 +112,8 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private showHelp(): void {
-    const cx = DESIGN_WIDTH / 2;
-    const cy = DESIGN_HEIGHT / 2;
-    const overlay = this.add
-      .rectangle(cx, cy, DESIGN_WIDTH, DESIGN_HEIGHT, 0x000000, 0.7)
-      .setInteractive();
-    const panel = this.add.graphics();
-    panel.fillStyle(THEME.bgPanelLight, 1);
-    panel.fillRoundedRect(cx - 340, cy - 200, 680, 400, RADIUS);
-    panel.lineStyle(2, THEME.stroke, THEME.strokeAlpha);
-    panel.strokeRoundedRect(cx - 340, cy - 200, 680, 400, RADIUS);
-
-    const text = [
-      "【目标】撑过 15 天且灵石始终高于斩杀线，即可飞升通关。",
-      "",
-      "【斩杀线】每天有一条「灵石斩杀线」(最低灵石门槛，逐日提高)。每天结算后，",
-      "若当前灵石 ≤ 当天斩杀线，立即被董事会逐出。左侧仪表盘显示当前灵石相对斩杀线的安全余量。",
-      "",
-      "【流程】规划(摆放/拆除) → 开始营业 → 观看结算 → 自动过关进入下一天。",
-      "",
-      "【建筑卡】底部固定 3 张建筑卡，可反复放置；每次过关随机刷新。",
-      "",
-      "【地图】浅色石板是蜿蜒主路（不可建造），建筑放在路旁草地。主路多次折返，",
-      "越早被游客经过的空地越肥（钱包足/体力好），越靠后越瘦——选址即策略。",
-      "【占地/旋转】建筑有不同占地尺寸；放置时按鼠标中键（或 R）旋转朝向。",
-      "【赚钱】游客沿主路前行，光顾路旁相邻的游乐/商店消费；钱包与体力有限。",
-      "不同门派偏好不同：剑修爱御剑、魔修爱刺激、佛修厌恶刺激。",
-      "",
-      "【联动】聚灵阵(相邻+15%)、雷池(雷系全局+30%)、悟道台(+1停留)、",
-      "九转大摆锤(相邻刺激越多越高)、黄泉漂流(越靠路线末端越高)。",
-      "",
-      "【风险】每天有灵脉维护费；负面事件可用护山大阵免疫。",
-    ].join("\n");
-
-    const body = this.add
-      .text(cx, cy - 20, text, {
-        fontFamily: FONT_FAMILY,
-        fontSize: "18px",
-        color: THEME.textLight,
-        align: "left",
-        lineSpacing: 4,
-      })
-      .setOrigin(0.5);
-
-    const close = new Button(this, cx, cy + 160, "我知道了", {
-      width: 180,
-      height: 46,
-      onClick: () => {
-        overlay.destroy();
-        panel.destroy();
-        body.destroy();
-        close.destroy();
-      },
-    });
+    if (!this.guide) this.guide = new GuidePanel(this);
+    audio.unlock();
+    this.guide.open();
   }
 }

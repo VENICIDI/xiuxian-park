@@ -137,7 +137,8 @@ export class AnimationPlayer {
     const body = this.scene.add
       .image(0, 0, "visitor")
       .setOrigin(0.5, 1);
-    body.setScale(VISITOR_HEIGHT / body.height);
+    const baseScale = VISITOR_HEIGHT / body.height;
+    body.setScale(baseScale);
     person.add([shadow, glow, body]);
     this.persons.push(person);
 
@@ -151,11 +152,8 @@ export class AnimationPlayer {
       ease: "Sine.easeInOut",
     });
 
-    // 只需走到最后一次消费的位置即可离场（无消费的游客快速走一小段后离开）
-    const walkUntil =
-      tl.lastRouteIndex >= 0
-        ? Math.min(tl.lastRouteIndex + 1, ROUTE.length - 1)
-        : Math.min(3, ROUTE.length - 1);
+    // 游客走完整条主路：入口 → 出口。途经建筑格时按时间线触发消费，走到出口后再淡出离场。
+    const walkUntil = ROUTE.length - 1;
     const stepDur = 150 / opts.speed;
     let idx = 0;
 
@@ -207,11 +205,11 @@ export class AnimationPlayer {
               const pc = cellCenter(p.cell);
               opts.onCoin?.(pc.x, pc.y, p.amount, p.thunder);
             }
-            // 消费时开心一跳
+            // 消费时开心一跳（相对基础缩放，避免绝对值把立绘放大数十倍）
             this.scene.tweens.add({
               targets: body,
-              scaleX: 1.05,
-              scaleY: 1.15,
+              scaleX: baseScale * 1.05,
+              scaleY: baseScale * 1.15,
               duration: 90 / opts.speed,
               yoyo: true,
             });

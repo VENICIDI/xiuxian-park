@@ -6,8 +6,11 @@ import { removeBackground } from "../rendering/chromaKey";
 import bgParkUrl from "../../assets/bg-park.png";
 import bSwordCoasterUrl from "../../assets/building-sword-coaster.png";
 
-/** 需要运行时抠白底的建筑贴图 key（源图为白底 JPEG/无 alpha 时的权宜处理）。 */
-const BUILDING_KEYS_NEED_CHROMAKEY = ["b-sword-coaster"];
+/**
+ * 需要运行时抠背景的建筑贴图 key（源图为品红/白底、无 alpha 时的兜底）。
+ * 正式流程用 `scripts/remove-bg.cjs` 离线抠成透明 PNG，直接加载成品即可，此处留空。
+ */
+const BUILDING_KEYS_NEED_CHROMAKEY: string[] = [];
 
 /**
  * 预加载场景。MVP 使用程序化占位美术，因此这里主要生成基础纹理

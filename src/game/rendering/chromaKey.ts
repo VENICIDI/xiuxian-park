@@ -1,35 +1,40 @@
 import Phaser from "phaser";
 
 /**
- * 运行时去除图片的纯色（白）背景，生成带透明通道的新纹理。
+ * 运行时去除图片的纯品红背景（chroma key），生成带透明通道的新纹理。
  *
- * 用途：AI 出的建筑图若是 JPEG / 白底 PNG（无 alpha），直接贴到棋盘上会显示成
- * 一块白色矩形卡片。此函数从图片四条边做洪水填充，把与边缘连通的近白像素设为透明，
- * 从而保留中间的建筑主体与被主体包围的内部云朵。
+ * 用途：AI 出的建筑图统一用纯品红底 `#FF00FF`（配色中不存在的色相）。此函数**全图**判定并
+ * 去除品红像素——包括被结构包围的内部孔洞（如过山车环轨内圈、拱门下方）——而洪水填充做不到。
  *
- * ⚠️ 这是权宜之计：与边缘连通的白云会被一并吃掉。正式资产应直接导出透明底 PNG。
+ * 判据基于“品红特征”而非单纯距离：R、B 高且 G 很低（品红 G≈0，紫流苏 G≈100、白云 G 高），
+ * 因此能抠净品红、同时保留紫饰与白云。边缘再做羽化 + 去品红溢色，减轻粉色毛边。
  *
- * @param scene   目标场景（其纹理管理器会被写入新纹理）
+ * @param scene   目标场景
  * @param srcKey  已加载的源纹理 key
- * @param opts.threshold 判定为背景的“白”阈值（min(r,g,b) 需高于此值），默认 232
- * @param opts.desat     判定为背景的最大彩度（max-min 需低于此值），默认 22
- * @param opts.feather   边缘羽化像素，减轻锯齿/白边，默认 1
+ * @param opts.gMax     判为背景时 G 分量上限（越低越保守），默认 90
+ * @param opts.minRB    判为背景时 R、B 分量下限，默认 120
+ * @param opts.diff     判为背景时 (R-G)、(B-G) 的下限，默认 70
+ * @param opts.feather  边缘羽化次数，默认 1
  * @returns 处理后写回的纹理 key（与 srcKey 相同，原纹理被替换）
  */
 export function removeBackground(
   scene: Phaser.Scene,
   srcKey: string,
-  opts: { threshold?: number; desat?: number; feather?: number } = {},
+  opts: {
+    gMax?: number;
+    minRB?: number;
+    diff?: number;
+    feather?: number;
+  } = {},
 ): string {
-  const threshold = opts.threshold ?? 232;
-  const desat = opts.desat ?? 22;
+  const gMax = opts.gMax ?? 90;
+  const minRB = opts.minRB ?? 120;
+  const diff = opts.diff ?? 70;
   const feather = opts.feather ?? 1;
 
   const tex = scene.textures.get(srcKey);
   if (!tex) return srcKey;
-  const source = tex.getSourceImage() as
-    | HTMLImageElement
-    | HTMLCanvasElement;
+  const source = tex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
   const w = source.width;
   const h = source.height;
   if (!w || !h) return srcKey;
@@ -44,49 +49,16 @@ export function removeBackground(
   const img = ctx.getImageData(0, 0, w, h);
   const data = img.data;
 
-  const isBg = (i: number): boolean => {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-    const mn = Math.min(r, g, b);
-    const mx = Math.max(r, g, b);
-    return mn >= threshold && mx - mn <= desat;
-  };
+  // 全图去品红：R、B 高且 G 很低（品红特征），紫饰(G≈100)/白云(G 高)不满足 → 保留
+  const isMagenta = (r: number, g: number, b: number): boolean =>
+    g <= gMax && r >= minRB && b >= minRB && r - g >= diff && b - g >= diff;
 
-  // 洪水填充：从所有边缘的背景像素出发，标记连通的背景区域
-  const removed = new Uint8Array(w * h);
-  const stack: number[] = [];
-  const pushIfBg = (x: number, y: number) => {
-    const p = y * w + x;
-    if (removed[p]) return;
-    if (isBg(p * 4)) {
-      removed[p] = 1;
-      stack.push(p);
-    }
-  };
-  for (let x = 0; x < w; x++) {
-    pushIfBg(x, 0);
-    pushIfBg(x, h - 1);
-  }
-  for (let y = 0; y < h; y++) {
-    pushIfBg(0, y);
-    pushIfBg(w - 1, y);
-  }
-  while (stack.length) {
-    const p = stack.pop() as number;
-    const x = p % w;
-    const y = (p / w) | 0;
-    if (x > 0) pushIfBg(x - 1, y);
-    if (x < w - 1) pushIfBg(x + 1, y);
-    if (y > 0) pushIfBg(x, y - 1);
-    if (y < h - 1) pushIfBg(x, y + 1);
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (isMagenta(data[i], data[i + 1], data[i + 2])) data[i + 3] = 0;
   }
 
-  for (let p = 0; p < removed.length; p++) {
-    if (removed[p]) data[p * 4 + 3] = 0;
-  }
-
-  // 边缘羽化：对紧邻透明区域的实体像素做一次 alpha 衰减，减轻硬白边
+  // 边缘羽化：紧邻透明区的实体像素衰减 alpha，减轻硬边
   for (let f = 0; f < feather; f++) {
     const snapshot = new Uint8Array(w * h);
     for (let p = 0; p < w * h; p++) snapshot[p] = data[p * 4 + 3];
@@ -99,14 +71,70 @@ export function removeBackground(
           (x < w - 1 && snapshot[p + 1] === 0) ||
           (y > 0 && snapshot[p - w] === 0) ||
           (y < h - 1 && snapshot[p + w] === 0);
-        if (near) data[p * 4 + 3] = Math.floor(data[p * 4 + 3] * 0.5);
+        if (near) data[p * 4 + 3] = Math.floor(data[p * 4 + 3] * 0.6);
+      }
+    }
+  }
+
+  // 去溢色：仅对紧邻透明区、且偏品红的边缘像素，压低多出的 R/B，消除粉色描边
+  const alpha = new Uint8Array(w * h);
+  for (let p = 0; p < w * h; p++) alpha[p] = data[p * 4 + 3];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (alpha[p] === 0) continue;
+      const near =
+        (x > 0 && alpha[p - 1] === 0) ||
+        (x < w - 1 && alpha[p + 1] === 0) ||
+        (y > 0 && alpha[p - w] === 0) ||
+        (y < h - 1 && alpha[p + w] === 0);
+      if (!near) continue;
+      const i = p * 4;
+      const r = data[i],
+        g = data[i + 1],
+        b = data[i + 2];
+      const m = (r + b) / 2;
+      if (m > g) {
+        const excess = (m - g) * 0.7;
+        data[i] = Math.max(g, r - excess);
+        data[i + 2] = Math.max(g, b - excess);
       }
     }
   }
 
   ctx.putImageData(img, 0, 0);
 
+  // 裁剪到不透明内容的紧边界，去掉四周透明留白，使后续按内容宽高缩放/居中更准
+  let minX = w,
+    minY = h,
+    maxX = -1,
+    maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] !== 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  let outCanvas: HTMLCanvasElement = canvas;
+  if (maxX >= minX && maxY >= minY) {
+    const bw = maxX - minX + 1;
+    const bh = maxY - minY + 1;
+    const cropped = document.createElement("canvas");
+    cropped.width = bw;
+    cropped.height = bh;
+    const cctx = cropped.getContext("2d");
+    if (cctx) {
+      cctx.drawImage(canvas, minX, minY, bw, bh, 0, 0, bw, bh);
+      outCanvas = cropped;
+    }
+  }
+
   if (scene.textures.exists(srcKey)) scene.textures.remove(srcKey);
-  scene.textures.addCanvas(srcKey, canvas);
+  scene.textures.addCanvas(srcKey, outCanvas);
   return srcKey;
 }

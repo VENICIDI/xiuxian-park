@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BOARD_SIZE, GRID_HEIGHT, GRID_WIDTH, indexOf } from "../config";
+import { BOARD_SIZE, GRID_HEIGHT, GRID_WIDTH } from "../config";
 import { getBuildingDef } from "../data/buildings";
 import { RARITY_COLOR, effectiveSize } from "../models/building";
 import type { BuildingDefinition, BuildingInstance } from "../models/building";
@@ -13,12 +13,8 @@ import {
   cellDiamond,
   footprintDiamond,
   isoCorner,
-  isoRank,
   type Pt,
 } from "./layout";
-
-const ISO_DEPTH_BASE = 10;
-const ISO_DEPTH_STEP = 1.2;
 
 /** 45° 等距棋盘与 3D 建筑的渲染层（草地 + 立体建筑）。 */
 export class BoardView {
@@ -268,16 +264,29 @@ export class BoardView {
     let bob: Phaser.GameObjects.Image | Phaser.GameObjects.Text | undefined;
 
     if (useArt) {
-      // 正式美术：透明底 PNG。以“占地宽度”为基准缩放，底边锚点落在占地菱形中心，
-      // 使建筑底座踩在格子上而非漂浮。ART_WIDTH_SCALE / ART_ANCHOR_Y 便于手动微调。
-      const ART_WIDTH_SCALE = 1.4;
+      // 贴图已在离线阶段裁剪到不透明内容边界（无透明留白），因此 setOrigin(0.5, 1) 恰为
+      // “内容底边中心”，无需再对透明留白做补偿（要求 6：留白已消除）。
+      // 底边中心锚点直接放在容器原点 (0,0) —— 即占地菱形的地面中心 center —— 不加任何竖直偏移，
+      // 于是建筑底部正好坐在地面上，无悬空间隙（要求 1/2/3/5/7）。
+      const ART_WIDTH_SCALE = 1.0;
+      const ART_ANGLE = 20; // 顺时针轻微旋转（绕底边中心，不改变接地点）；需完全平放设为 0
+      const flipped = ((inst.rotation ?? 0) & 1) === 1;
+
+      // 接地投影：与底边中心重合，落在地面锚点正下方，强化“踩地”接触感
+      const contact = this.scene.add
+        .image(0, 0, "shadow")
+        .setTint(0x000000)
+        .setAlpha(0.45);
+      contact.setDisplaySize(groundW * 0.9, groundW * 0.9 * 0.4);
+      container.add(contact);
+
       const img = this.scene.add
-        .image(0, HALF_H * 0.15, def.sprite as string)
-        .setOrigin(0.5, 0.9);
-      const scale = (groundW * ART_WIDTH_SCALE) / img.width;
-      img.setScale(scale);
+        .image(0, 0, def.sprite as string)
+        .setOrigin(0.5, 1); // 底边中心为锚点（要求 2/3）
+      img.setScale((groundW * ART_WIDTH_SCALE) / img.width);
       // 等距下 1×2（竖）= 2×1（横）的水平镜像：奇数朝向翻转贴图以贴合另一条对角线
-      if (((inst.rotation ?? 0) & 1) === 1) img.setFlipX(true);
+      if (flipped) img.setFlipX(true);
+      img.setAngle(flipped ? -ART_ANGLE : ART_ANGLE);
       if (disabled) img.setTint(0x888888);
       container.add(img);
       bob = img;
@@ -391,8 +400,9 @@ export class BoardView {
       container.add(tag);
     }
 
-    const frontCell = indexOf(gx + eff.w - 1, gy + eff.h - 1);
-    container.setDepth(ISO_DEPTH_BASE + isoRank(frontCell) * ISO_DEPTH_STEP);
+    // 深度按精灵底边中心的世界 Y 排序（要求 8）：Y 越大＝越靠近相机 → 深度越高 → 正确遮挡后方物体。
+    // 系数很小以将全部建筑压在 board(0) 与 highlight(15) 之间，同时保留逐行前后顺序。
+    container.setDepth(DEPTH.building + center.y * 0.002);
 
     this.buildingContainers.push(container);
     this.sprites.set(index, container);

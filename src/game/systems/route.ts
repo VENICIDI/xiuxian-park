@@ -1,4 +1,4 @@
-import { BOARD_SIZE, indexOf } from "../config";
+import { BOARD_SIZE, GRID_HEIGHT, GRID_WIDTH, indexOf } from "../config";
 import { neighborIndices } from "./grid";
 
 /**
@@ -9,30 +9,54 @@ import { neighborIndices } from "./grid";
  * 越早被经过（游客钱包足、体力好）越肥；越靠后越瘦——形成放置策略。
  * 无 A* 寻路，顺序稳定，可复现。
  *
- * 布局（■=道路，□=可建造），8 列 × 6 行：
- *   y0: ▶ □ □ ■ ■ ■ ■ □
- *   y1: ■ □ □ ■ □ □ ■ □
- *   y2: ■ □ □ ■ □ □ ■ □
- *   y3: ■ □ □ ■ □ □ ■ □
- *   y4: ■ □ □ ■ □ □ ■ □
- *   y5: ■ ■ ■ ■ □ □ ◀ □
- * 入口在 (0,0)，出口在 (6,5)。左袋 x1~2、中袋 x4~5 均为 2 格宽（可放多格建筑），
- * 右侧 x7 为 1 格宽窄条（服务顺序最靠后）。
+ * 采用「不等间距竖列蛇形」：若干条竖直主路交替上/下行，并在顶/底行横向串联，
+ * 竖列之间形成宽窄不一的建造口袋（1 格窄缝 / 2 格宽袋），迫使玩家权衡
+ * 「大建筑只能进宽袋」与「越靠前的口袋服务顺序越肥」。
+ *
+ * 布局（■=道路，□=可建造），10 列 × 8 行（竖列 x=0,2,5,7,9）：
+ *   y0: ▶ □ ■ ■ ■ ■ □ ■ ■ ■
+ *   y1: ■ □ ■ □ □ ■ □ ■ □ ■
+ *   y2: ■ □ ■ □ □ ■ □ ■ □ ■
+ *   y3: ■ □ ■ □ □ ■ □ ■ □ ■
+ *   y4: ■ □ ■ □ □ ■ □ ■ □ ■
+ *   y5: ■ □ ■ □ □ ■ □ ■ □ ■
+ *   y6: ■ □ ■ □ □ ■ □ ■ □ ■
+ *   y7: ■ ■ ■ □ □ ■ ■ ■ □ ◀
+ * 入口在 (0,0)，出口在 (9,7)。口袋依次为 x1(窄)、x3~4(宽)、x6(窄)、x8(窄)。
  */
+
+/** 竖直主路所在列（不等间距，制造宽窄口袋）。 */
+function roadColumns(w: number): number[] {
+  const preset: Record<number, number[]> = {
+    10: [0, 2, 5, 7, 9],
+  };
+  if (preset[w]) return preset[w];
+  // 退化规则：每隔 2 列一条竖路，并确保最后一列为竖路（出口明确）
+  const cols: number[] = [];
+  for (let x = 0; x < w; x += 3) cols.push(x);
+  if (cols[cols.length - 1] !== w - 1) cols.push(w - 1);
+  return cols;
+}
+
 function buildRoute(): number[] {
+  const H = GRID_HEIGHT;
+  const cols = roadColumns(GRID_WIDTH);
   const route: number[] = [];
-  // 第 0 列向下（入口 0,0 → 0,5）
-  for (let y = 0; y <= 5; y++) route.push(indexOf(0, y));
-  // 底部向右连接到第 3 列
-  route.push(indexOf(1, 5));
-  route.push(indexOf(2, 5));
-  // 第 3 列向上（3,5 → 3,0）
-  for (let y = 5; y >= 0; y--) route.push(indexOf(3, y));
-  // 顶部向右连接到第 6 列
-  route.push(indexOf(4, 0));
-  route.push(indexOf(5, 0));
-  // 第 6 列向下（6,0 → 出口 6,5）
-  for (let y = 0; y <= 5; y++) route.push(indexOf(6, y));
+  for (let i = 0; i < cols.length; i++) {
+    const x = cols[i];
+    const goingDown = i % 2 === 0;
+    if (goingDown) {
+      for (let y = 0; y < H; y++) route.push(indexOf(x, y));
+    } else {
+      for (let y = H - 1; y >= 0; y--) route.push(indexOf(x, y));
+    }
+    // 沿结束所在行横向串联到下一条竖路
+    if (i < cols.length - 1) {
+      const nextX = cols[i + 1];
+      const rowY = goingDown ? H - 1 : 0;
+      for (let cx = x + 1; cx < nextX; cx++) route.push(indexOf(cx, rowY));
+    }
+  }
   return route;
 }
 

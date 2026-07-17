@@ -42,18 +42,20 @@ export const PLAY_H = HAND_Y - HUD_H;
  * 其中 (gx,gy) 允许为「角坐标」（0..GRID_WIDTH / 0..GRID_HEIGHT），
  * 格中心即角坐标 (cx+0.5, cy+0.5)。
  */
-export const TILE_W = 108; // 菱形地砖宽（放大棋盘以填满地图列，增强经营感）
-export const TILE_H = 54; // 菱形地砖高（2:1）
+export const TILE_W = 84; // 菱形地砖宽（10×8 更大棋盘，缩小地砖以在竖直空间内容纳）
+export const TILE_H = 42; // 菱形地砖高（2:1）
 export const HALF_W = TILE_W / 2;
 export const HALF_H = TILE_H / 2;
 
 /**
  * 投影原点（网格角 (0,0) 的屏幕位置），使棋盘在全宽画布内水平居中、
  * 垂直位于 HUD 与底部建筑卡坞之间，并留出顶部建筑高度与底部厚土台的空间。
- * 画布中心 x = DESIGN_WIDTH/2 = 640；菱形中心相对原点偏移 +HALF_W，故 ORIGIN_X = 640 - HALF_W。
+ * 水平：菱形包围盒中心 = ORIGIN_X + (W-H)*HALF_W/2，令其等于画布中心 640。
  */
-export const ORIGIN_X = 586;
-export const ORIGIN_Y = 156;
+export const ORIGIN_X = Math.round(
+  DESIGN_WIDTH / 2 - ((GRID_WIDTH - GRID_HEIGHT) * HALF_W) / 2,
+);
+export const ORIGIN_Y = 150;
 
 export type Pt = { x: number; y: number };
 

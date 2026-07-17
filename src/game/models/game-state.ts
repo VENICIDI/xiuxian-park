@@ -24,7 +24,7 @@ export type GameState = {
   phase: GamePhase;
   spiritStones: number;
   visitorCount: number;
-  /** 固定 48 项一维数组，索引 y*8+x */
+  /** 固定 BOARD_SIZE 项一维数组，索引 y*GRID_WIDTH+x */
   board: Array<BuildingInstance | null>;
   /** 当前底部可放置的建筑卡（固定 3 张手牌，每次过关随机刷新，可重复放置） */
   ownedBuildingIds: string[];

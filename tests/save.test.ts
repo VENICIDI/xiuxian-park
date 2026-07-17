@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SaveService, DEFAULT_SETTINGS } from "../src/game/services/SaveService";
 import { resolveDay } from "../src/game/controllers/TurnController";
+import { BOARD_SIZE } from "../src/game/config";
 import { newGame } from "./helpers";
 
 // 简易 localStorage mock
@@ -34,7 +35,7 @@ describe("存档", () => {
     if (res.ok) {
       expect(res.envelope.state.seed).toBe(s.seed);
       expect(res.envelope.state.day).toBe(s.day);
-      expect(res.envelope.state.board.length).toBe(48);
+      expect(res.envelope.state.board.length).toBe(BOARD_SIZE);
     }
   });
 

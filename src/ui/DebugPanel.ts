@@ -80,6 +80,7 @@ export class DebugPanel {
         `rngCursor: ${s.rngCursor}`,
         `day: ${s.day} / phase: ${s.phase}`,
         `灵石: ${s.spiritStones}`,
+        `股东压力: ${Math.round(s.shareholderPressure)} / 100`,
         `游客: ${s.visitorCount}`,
         `事件: ${ev.name}`,
         `建筑数: ${s.board.filter(Boolean).length}`,

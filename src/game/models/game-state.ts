@@ -23,6 +23,8 @@ export type GameState = {
   day: number;
   phase: GamePhase;
   spiritStones: number;
+  /** 股东压力 0..100：达到 100 被董事会罢免（斩杀线机制，取代破产失败）。 */
+  shareholderPressure: number;
   visitorCount: number;
   /** 固定 48 项一维数组，索引 y*8+x */
   board: Array<BuildingInstance | null>;

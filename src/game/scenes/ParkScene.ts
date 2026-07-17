@@ -34,6 +34,7 @@ import {
   indexAtWorld,
 } from "../rendering/layout";
 import { Hud } from "../../ui/Hud";
+import { PressureGauge } from "../../ui/PressureGauge";
 import { SKIN } from "../../ui/skin";
 import { HandBar } from "../../ui/HandBar";
 import { HandDetailPanel } from "../../ui/HandDetailPanel";
@@ -47,6 +48,7 @@ export class ParkScene extends Phaser.Scene {
 
   private board!: BoardView;
   private hud!: Hud;
+  private gauge!: PressureGauge;
   private hand!: HandBar;
   private cardDetail!: HandDetailPanel;
   private detail!: DetailPanel;
@@ -100,6 +102,7 @@ export class ParkScene extends Phaser.Scene {
     this.board = new BoardView(this);
     this.fx = new Fx(this);
     this.hud = new Hud(this);
+    this.gauge = new PressureGauge(this);
     this.hand = new HandBar(this, (id) => this.selectBuilding(id));
     this.cardDetail = new HandDetailPanel(this);
     this.detail = new DetailPanel(this);
@@ -448,6 +451,7 @@ export class ParkScene extends Phaser.Scene {
   private refreshAll(): void {
     this.board.refresh(this.state);
     this.hud.update(this.state);
+    this.gauge.update(this.state);
     this.hand.refresh(this.state);
     this.debug.refresh();
     if (this.state.phase === "planning") {

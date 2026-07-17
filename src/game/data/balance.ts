@@ -38,26 +38,13 @@ export const BALANCE = {
   finalDay: 15,
 
   /**
-   * 股东压力（斩杀线机制）：取代原「灵石为负破产」失败。
-   * 每天有一条「业绩斩杀线」= 目标净收益（随天数递增）。
-   *   净收益 < 斩杀线 → 按缺口比例增加压力；
-   *   净收益 ≥ 斩杀线 → 按盈余比例降低压力（达标至少缓解 downBase）。
-   *   压力达到 max(100%) → 被董事会罢免，游戏失败。
+   * 斩杀线（生存线）机制：取代原「股东压力」失败。
+   * 每天有一条最低灵石门槛 = base + perDay*(day-1)，随天数递增。
+   * 每天结算后若当前灵石 ≤ 当天斩杀线 → 直接被董事会逐出，游戏失败。
    */
-  shareholderPressure: {
-    starting: 0,
-    max: 100,
-    /** 斩杀线：killLineBase + killLinePerDay*(day-1) */
-    killLineBase: 40,
-    killLinePerDay: 24,
-    /** 未达标加压：clamp(round(shortfallRatio*upScale), upMin, upMax) */
-    upScale: 46,
-    upMin: 6,
-    upMax: 60,
-    /** 达标缓解：clamp(round(downBase + surplusRatio*downScale), downBase, downMax) */
-    downBase: 12,
-    downScale: 28,
-    downMax: 45,
+  killLine: {
+    base: 40,
+    perDay: 24,
   },
 
   /** 三选一候选数量 */

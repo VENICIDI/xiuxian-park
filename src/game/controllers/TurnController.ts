@@ -91,7 +91,6 @@ export function createNewGame(seed?: number): GameState {
     day: 1,
     phase: "planning",
     spiritStones: BALANCE.startingSpiritStones,
-    shareholderPressure: BALANCE.shareholderPressure.starting,
     visitorCount: BALANCE.baseVisitorCount,
     board: emptyBoard(),
     ownedBuildingIds: [],
@@ -116,25 +115,10 @@ function dailyUpkeep(day: number): number {
   return BALANCE.dailyUpkeepBase + BALANCE.dailyUpkeepPerDay * (day - 1);
 }
 
-/** 当天的「业绩斩杀线」（目标净收益，随天数递增）。 */
+/** 当天的「斩杀线」（最低灵石门槛，随天数递增）。灵石 ≤ 此值即失败。 */
 export function killLineForDay(day: number): number {
-  const P = BALANCE.shareholderPressure;
-  return P.killLineBase + P.killLinePerDay * (day - 1);
-}
-
-/**
- * 根据当天净收益与斩杀线，返回压力增量（正=加压，负=缓解）。
- * 未达标按缺口比例加压；达标按盈余比例缓解（达标至少缓解 downBase）。
- */
-export function pressureDelta(netIncome: number, killLine: number): number {
-  const P = BALANCE.shareholderPressure;
-  const denom = Math.max(1, killLine);
-  if (netIncome < killLine) {
-    const shortfallRatio = (killLine - netIncome) / denom;
-    return Math.min(P.upMax, Math.max(P.upMin, Math.round(shortfallRatio * P.upScale)));
-  }
-  const surplusRatio = (netIncome - killLine) / denom;
-  return -Math.min(P.downMax, Math.round(P.downBase + surplusRatio * P.downScale));
+  const P = BALANCE.killLine;
+  return P.base + P.perDay * (day - 1);
 }
 
 /**
@@ -236,19 +220,11 @@ export function resolveDay(state: GameState): SimulationResult {
 
   const breakdowns: RevenueBreakdown[] = [...sim.breakdowns.values()];
 
-  // —— 股东压力（斩杀线机制）：按当天净收益与斩杀线的差额增减压力
-  const P = BALANCE.shareholderPressure;
+  // —— 失败判定：当前灵石触及当天斩杀线（唯一失败源）
   const killLine = killLineForDay(next.day);
-  const delta = pressureDelta(netIncome, killLine);
-  next.shareholderPressure = Math.min(
-    P.max,
-    Math.max(0, next.shareholderPressure + delta),
-  );
-
-  // —— 失败判定：股东压力爆表（唯一失败源；灵石允许暂时为负）
-  if (next.shareholderPressure >= P.max) {
+  if (next.spiritStones <= killLine) {
     next.phase = "gameOver";
-    next.statistics.failureReason = "股东压力爆表，董事会将你逐出乐园。";
+    next.statistics.failureReason = `灵石跌至斩杀线（◈${killLine}），董事会将你逐出乐园。`;
     commitRng(next, rng);
     return { nextState: next, events, breakdowns };
   }

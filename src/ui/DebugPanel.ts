@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { getDailyEvent } from "../game/data/daily-events";
+import { killLineForDay } from "../game/controllers/TurnController";
 import type { GameState } from "../game/models/game-state";
 import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
 import { Button } from "./Button";
@@ -80,7 +81,7 @@ export class DebugPanel {
         `rngCursor: ${s.rngCursor}`,
         `day: ${s.day} / phase: ${s.phase}`,
         `灵石: ${s.spiritStones}`,
-        `股东压力: ${Math.round(s.shareholderPressure)} / 100`,
+        `今日斩杀线: ${killLineForDay(s.day)}`,
         `游客: ${s.visitorCount}`,
         `事件: ${ev.name}`,
         `建筑数: ${s.board.filter(Boolean).length}`,

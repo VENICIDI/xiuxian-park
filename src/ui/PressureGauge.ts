@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { BALANCE } from "../game/data/balance";
 import { killLineForDay } from "../game/controllers/TurnController";
 import type { GameState } from "../game/models/game-state";
 import { DEPTH, FONT_FAMILY, THEME } from "../game/theme";
@@ -19,17 +18,17 @@ const FILL_W = 8;
 const START_DEG = 135; // 起点（左下），顺时针扫 270°，底部留缺口
 const SWEEP_DEG = 270;
 
-/** 根据压力值取仪表盘颜色（绿 → 金 → 橙 → 红）。 */
-function pressureColor(p: number): number {
-  if (p < 40) return THEME.green;
-  if (p < 70) return THEME.gold;
-  if (p < 90) return 0xff8c42;
+/** 根据安全余量比例取颜色（余量高→绿，接近斩杀线→红）。 */
+function safetyColor(frac: number): number {
+  if (frac >= 0.6) return THEME.green;
+  if (frac >= 0.3) return THEME.gold;
+  if (frac >= 0.12) return 0xff8c42;
   return THEME.red;
 }
 
 /**
- * 左侧「股东压力」圆弧仪表盘：显示当前压力 / 斩杀线机制的失败进度。
- * 压力越高圆弧越满、越红，满 100% 即被董事会罢免。
+ * 左侧「生存线」圆弧仪表盘：显示当前灵石相对当天斩杀线的安全余量。
+ * 弧越满、越绿越安全；灵石逼近斩杀线时弧归零、变红；灵石 ≤ 斩杀线即失败。
  */
 export class PressureGauge {
   private scene: Phaser.Scene;
@@ -47,7 +46,7 @@ export class PressureGauge {
 
     // 标题
     scene.add
-      .text(GX, PY + 11, "股东压力", {
+      .text(GX, PY + 11, "生存灵石", {
         fontFamily: FONT_FAMILY,
         fontSize: "12px",
         color: SKIN.textGold,
@@ -58,7 +57,7 @@ export class PressureGauge {
 
     this.arc = scene.add.graphics().setDepth(DEPTH.panel + 1);
 
-    // 圆心大数字（百分比）
+    // 圆心大数字（当前灵石）
     this.valueText = scene.add
       .text(GX, GY - 2, "0", {
         fontFamily: FONT_FAMILY,
@@ -70,7 +69,7 @@ export class PressureGauge {
       .setDepth(DEPTH.panel + 2);
 
     scene.add
-      .text(GX, GY + 15, "距罢免", {
+      .text(GX, GY + 15, "当前灵石", {
         fontFamily: FONT_FAMILY,
         fontSize: "9px",
         color: SKIN.textDim,
@@ -113,10 +112,12 @@ export class PressureGauge {
   }
 
   update(state: GameState): void {
-    const max = BALANCE.shareholderPressure.max;
-    const p = Phaser.Math.Clamp(Math.round(state.shareholderPressure), 0, max);
-    const frac = p / max;
-    const color = pressureColor(p);
+    const killLine = killLineForDay(state.day);
+    const stones = Math.round(state.spiritStones);
+    // 安全余量：灵石=斩杀线 → 0（空/红/死）；灵石≥2×斩杀线 → 1（满/绿）
+    const denom = Math.max(1, killLine);
+    const frac = Phaser.Math.Clamp((stones - killLine) / denom, 0, 1);
+    const color = safetyColor(frac);
 
     this.arc.clear();
     // 轨道
@@ -139,30 +140,30 @@ export class PressureGauge {
     }
 
     this.valueText.setColor(color === THEME.gold ? THEME.textGold : `#${color.toString(16).padStart(6, "0")}`);
-    this.killLineText.setText(`◈ ${killLineForDay(state.day)}`);
+    this.killLineText.setText(`◈ ${killLine}`);
 
     // 数字滚动
     if (this.displayed < 0) {
-      this.displayed = p;
-      this.valueText.setText(`${p}`);
+      this.displayed = stones;
+      this.valueText.setText(`${stones}`);
       return;
     }
-    if (this.displayed === p) {
-      this.valueText.setText(`${p}`);
+    if (this.displayed === stones) {
+      this.valueText.setText(`${stones}`);
       return;
     }
     const counter = { v: this.displayed };
-    this.displayed = p;
+    this.displayed = stones;
     this.scene.tweens.add({
       targets: counter,
-      v: p,
+      v: stones,
       duration: 500,
       ease: "Cubic.easeOut",
       onUpdate: () => this.valueText.setText(`${Math.round(counter.v)}`),
-      onComplete: () => this.valueText.setText(`${p}`),
+      onComplete: () => this.valueText.setText(`${stones}`),
     });
-    // 危险区脉冲
-    if (p >= 80) {
+    // 危险区脉冲（安全余量很低时）
+    if (frac <= 0.15) {
       this.scene.tweens.add({
         targets: this.valueText,
         scale: 1.18,

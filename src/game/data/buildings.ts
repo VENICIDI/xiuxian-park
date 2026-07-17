@@ -7,6 +7,22 @@ import type { BuildingDefinition } from "../models/building";
 export const BUILDING_DEFINITIONS: BuildingDefinition[] = [
   // ============ 游乐设施 ============
   {
+    id: "xian-park",
+    name: "仙侠游乐园",
+    size: { w: 2, h: 2 },
+    category: "ride",
+    tags: ["sword", "flight", "speed", "stimulating"],
+    rarity: "legendary",
+    baseCost: 120,
+    upgradeCosts: [180, 300, 480],
+    baseRevenue: 40,
+    levelRevenue: [40, 58, 80, 110],
+    color: 0x8fd3c7,
+    sprite: "b-xian-park",
+    effects: [],
+    description: "3D 建模烘焙的招牌仙府园区，占地 2×2 的旗舰级设施。",
+  },
+  {
     id: "sword-coaster",
     name: "御剑过山车",
     size: { w: 2, h: 1 },
@@ -258,6 +274,7 @@ export const ALL_BUILDING_IDS = BUILDING_DEFINITIONS.map((b) => b.id);
 
 /** 开局默认手牌：给玩家几张基础建筑起步。 */
 export const STARTER_BUILDING_IDS = [
+  "xian-park",
   "pill-shop",
   "sword-coaster",
   "mengpo-tea",

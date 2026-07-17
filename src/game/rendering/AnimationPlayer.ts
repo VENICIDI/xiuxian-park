@@ -10,6 +10,8 @@ const ISO_DEPTH_BASE = 10;
 const ISO_DEPTH_STEP = 1.2;
 /** 游客略高于同格建筑，保证行走时的遮挡关系自然。 */
 const VISITOR_DEPTH_BIAS = 0.6;
+/** 游客立绘目标显示高度（逻辑像素）；按贴图实际高度换算缩放，避免依赖源图尺寸。 */
+const VISITOR_HEIGHT = 60;
 
 type Purchase = { cell: number; amount: number; thunder: boolean };
 
@@ -126,12 +128,17 @@ export class AnimationPlayer {
       .image(0, 10, "shadow")
       .setAlpha(0.3)
       .setScale(0.55);
-    const body = this.scene.add
-      .image(0, 0, "person")
+    // 脚下宗门色柔光：正式立绘不再整体染色，改用地面光斑区分宗门
+    const glow = this.scene.add
+      .image(0, 8, "glow")
       .setTint(sect.color)
-      .setScale(0.72)
-      .setOrigin(0.5, 0.8);
-    person.add([shadow, body]);
+      .setAlpha(0.5)
+      .setScale(1.1, 0.5);
+    const body = this.scene.add
+      .image(0, 0, "visitor")
+      .setOrigin(0.5, 1);
+    body.setScale(VISITOR_HEIGHT / body.height);
+    person.add([shadow, glow, body]);
     this.persons.push(person);
 
     // 走路摆动（身体上下轻微起伏）

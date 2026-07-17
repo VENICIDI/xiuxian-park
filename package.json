@@ -17,6 +17,8 @@
   },
   "devDependencies": {
     "pngjs": "^7.0.0",
+    "puppeteer": "^25.3.0",
+    "three": "^0.185.1",
     "typescript": "^5.5.4",
     "vite": "^5.4.2",
     "vitest": "^2.0.5"

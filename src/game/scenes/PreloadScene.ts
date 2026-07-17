@@ -5,6 +5,8 @@ import { applyHiDpiCamera } from "../hidpi";
 import { removeBackground } from "../rendering/chromaKey";
 import bgParkUrl from "../../assets/bg-park.png";
 import bSwordCoasterUrl from "../../assets/building-sword-coaster.png";
+import bXianParkUrl from "../../assets/building-xian-park.png";
+import visitorUrl from "../../assets/visitor.png";
 
 /**
  * 需要运行时抠背景的建筑贴图 key（源图为品红/白底、无 alpha 时的兜底）。
@@ -53,6 +55,10 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image("bg-park", bgParkUrl);
     // 建筑正式美术（透明底 PNG）；纹理 key 与建筑定义的 sprite 字段对应
     this.load.image("b-sword-coaster", bSwordCoasterUrl);
+    // 仙侠游乐园 3D 模型烘焙的等距贴图（2×2 大型建筑，测试用）
+    this.load.image("b-xian-park", bXianParkUrl);
+    // 游客正式美术（离线抠透明底 PNG），覆盖程序化占位小人
+    this.load.image("visitor", visitorUrl);
   }
 
   create(): void {

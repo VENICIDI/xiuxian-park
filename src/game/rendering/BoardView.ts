@@ -251,12 +251,6 @@ export class BoardView {
 
     const container = this.scene.add.container(center.x, center.y);
 
-    // 接地阴影
-    const shadow = this.scene.add.graphics();
-    shadow.fillStyle(0x000000, 0.25);
-    this.poly(shadow, [back, right, front, left]);
-    container.add(shadow);
-
     const rarityColor = RARITY_COLOR[def.rarity];
     const useArt = !!def.sprite && this.scene.textures.exists(def.sprite);
     const groundW = (eff.w + eff.h) * HALF_W;
@@ -268,29 +262,27 @@ export class BoardView {
       // “内容底边中心”，无需再对透明留白做补偿（要求 6：留白已消除）。
       // 底边中心锚点直接放在容器原点 (0,0) —— 即占地菱形的地面中心 center —— 不加任何竖直偏移，
       // 于是建筑底部正好坐在地面上，无悬空间隙（要求 1/2/3/5/7）。
-      const ART_WIDTH_SCALE = 1.0;
-      const ART_ANGLE = 20; // 顺时针轻微旋转（绕底边中心，不改变接地点）；需完全平放设为 0
-      const flipped = ((inst.rotation ?? 0) & 1) === 1;
-
-      // 接地投影：与底边中心重合，落在地面锚点正下方，强化“踩地”接触感
-      const contact = this.scene.add
-        .image(0, 0, "shadow")
-        .setTint(0x000000)
-        .setAlpha(0.45);
-      contact.setDisplaySize(groundW * 0.9, groundW * 0.9 * 0.4);
-      container.add(contact);
-
+      // 贴图已按棋盘等距角度离线渲染（见 scripts/render-glb.cjs），透视已烘焙进像素，
+      // 因此不再叠加任何旋转/镜像去伪造透视：仅按占地宽度缩放、底边中心贴地即可。
+      const ART_WIDTH_SCALE = 0.85;
+      // 基座下沉：以底边中心贴在占地中心时，菱形基座会整体偏上（只有前尖点落在中心）。
+      // 下移约 1/4 显示宽度（≈基座菱形半个纵深），使基座中心对齐占地中心。可微调系数。
+      const ART_GROUND_LIFT = 0.25;
       const img = this.scene.add
         .image(0, 0, def.sprite as string)
         .setOrigin(0.5, 1); // 底边中心为锚点（要求 2/3）
       img.setScale((groundW * ART_WIDTH_SCALE) / img.width);
-      // 等距下 1×2（竖）= 2×1（横）的水平镜像：奇数朝向翻转贴图以贴合另一条对角线
-      if (flipped) img.setFlipX(true);
-      img.setAngle(flipped ? -ART_ANGLE : ART_ANGLE);
+      img.y = img.displayWidth * ART_GROUND_LIFT;
       if (disabled) img.setTint(0x888888);
       container.add(img);
       bob = img;
     } else {
+      // 占位体块保留接地阴影；真图建筑不画阴影
+      const shadow = this.scene.add.graphics();
+      shadow.fillStyle(0x000000, 0.25);
+      this.poly(shadow, [back, right, front, left]);
+      container.add(shadow);
+
       const roofColor = this.lighten(def.color, 0.22);
       const leftColor = this.lighten(def.color, -0.44);
       const rightColor = this.lighten(def.color, -0.22);
@@ -407,28 +399,17 @@ export class BoardView {
     this.buildingContainers.push(container);
     this.sprites.set(index, container);
 
-    // idle 微动
-    if (!disabled && bob) {
-      if (def.category === "ride") {
-        this.scene.tweens.add({
-          targets: bob,
-          y: bob.y - 3,
-          duration: 900 + Math.random() * 400,
-          yoyo: true,
-          repeat: -1,
-          ease: "Sine.easeInOut",
-        });
-      } else if (def.category === "buff") {
-        this.scene.tweens.add({
-          targets: bob,
-          scale: bob.scale * 1.06,
-          angle: 3,
-          duration: 1400,
-          yoyo: true,
-          repeat: -1,
-          ease: "Sine.easeInOut",
-        });
-      }
+    // idle 微动（游乐设施不再上下漂浮，避免真图晃动）
+    if (!disabled && bob && def.category === "buff") {
+      this.scene.tweens.add({
+        targets: bob,
+        scale: bob.scale * 1.06,
+        angle: 3,
+        duration: 1400,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
     }
 
     // 新建筑弹入 POP（规范十五：0.8 → 1.05 → 1）

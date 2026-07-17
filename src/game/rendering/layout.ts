@@ -42,8 +42,8 @@ export const PLAY_H = HAND_Y - HUD_H;
  * 其中 (gx,gy) 允许为「角坐标」（0..GRID_WIDTH / 0..GRID_HEIGHT），
  * 格中心即角坐标 (cx+0.5, cy+0.5)。
  */
-export const TILE_W = 84; // 菱形地砖宽（10×8 更大棋盘，缩小地砖以在竖直空间内容纳）
-export const TILE_H = 42; // 菱形地砖高（2:1）
+export const TILE_W = 108; // 菱形地砖宽（进一步放大棋盘；建筑贴图按 groundW 等比放大）
+export const TILE_H = 54; // 菱形地砖高（2:1）
 export const HALF_W = TILE_W / 2;
 export const HALF_H = TILE_H / 2;
 
@@ -54,7 +54,9 @@ export const HALF_H = TILE_H / 2;
  */
 export const ORIGIN_X =
   Math.round(DESIGN_WIDTH / 2 - ((GRID_WIDTH - GRID_HEIGHT) * HALF_W) / 2) - 48;
-export const ORIGIN_Y = 116;
+// 手牌坞只占左下角，棋盘最低格落在画面中部偏右，两者水平错开；因此原点可整体下移
+// 让场景更靠前（等距视角里更“近”），底板底缘仍收在画布内，顶角仍露在 HUD 之下。
+export const ORIGIN_Y = 104;
 
 export type Pt = { x: number; y: number };
 

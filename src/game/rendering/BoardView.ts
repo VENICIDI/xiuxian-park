@@ -252,7 +252,15 @@ export class BoardView {
     const container = this.scene.add.container(center.x, center.y);
 
     const rarityColor = RARITY_COLOR[def.rarity];
-    const useArt = !!def.sprite && this.scene.textures.exists(def.sprite);
+    // 旋转（奇数）时优先使用 <sprite>-rot 专用贴图（长轴换到另一条对角线），
+    // 无专用贴图则回退到默认贴图。约定见 scripts/render-glb.cjs 与 PreloadScene。
+    const rotated = ((inst.rotation ?? 0) & 1) === 1;
+    const rotKey = def.sprite ? `${def.sprite}-rot` : "";
+    const spriteKey =
+      rotated && rotKey && this.scene.textures.exists(rotKey)
+        ? rotKey
+        : def.sprite;
+    const useArt = !!spriteKey && this.scene.textures.exists(spriteKey);
     const groundW = (eff.w + eff.h) * HALF_W;
     // idle 微动的目标：真图用整张贴图，占位用屋顶 emoji
     let bob: Phaser.GameObjects.Image | Phaser.GameObjects.Text | undefined;
@@ -269,7 +277,7 @@ export class BoardView {
       // 下移约 1/4 显示宽度（≈基座菱形半个纵深），使基座中心对齐占地中心。可微调系数。
       const ART_GROUND_LIFT = 0.25;
       const img = this.scene.add
-        .image(0, 0, def.sprite as string)
+        .image(0, 0, spriteKey as string)
         .setOrigin(0.5, 1); // 底边中心为锚点（要求 2/3）
       img.setScale((groundW * ART_WIDTH_SCALE) / img.width);
       img.y = img.displayWidth * ART_GROUND_LIFT;

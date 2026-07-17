@@ -6,6 +6,9 @@ import { removeBackground } from "../rendering/chromaKey";
 import bgParkUrl from "../../assets/bg-park.png";
 import bSwordCoasterUrl from "../../assets/building-sword-coaster.png";
 import bXianParkUrl from "../../assets/building-xian-park.png";
+import bMengpoTeaUrl from "../../assets/building-mengpo-tea.png";
+import bYellowSpringDriftUrl from "../../assets/building-yellow-spring-drift.png";
+import bYellowSpringDriftRotUrl from "../../assets/building-yellow-spring-drift-rot.png";
 import visitorUrl from "../../assets/visitor.png";
 
 /**
@@ -57,6 +60,11 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image("b-sword-coaster", bSwordCoasterUrl);
     // 仙侠游乐园 3D 模型烘焙的等距贴图（2×2 大型建筑，测试用）
     this.load.image("b-xian-park", bXianParkUrl);
+    // 3D 模型烘焙的等距贴图（孟婆奶茶 1×1 / 黄泉漂流 2×1）
+    this.load.image("b-mengpo-tea", bMengpoTeaUrl);
+    this.load.image("b-yellow-spring-drift", bYellowSpringDriftUrl);
+    // 黄泉漂流旋转 90°（1×2）朝向的专用贴图，命名约定 <sprite>-rot
+    this.load.image("b-yellow-spring-drift-rot", bYellowSpringDriftRotUrl);
     // 游客正式美术（离线抠透明底 PNG），覆盖程序化占位小人
     this.load.image("visitor", visitorUrl);
   }

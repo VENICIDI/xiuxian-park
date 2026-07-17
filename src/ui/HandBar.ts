@@ -165,7 +165,7 @@ export class HandBar {
       Phaser.Geom.Rectangle.Contains,
     );
     container.on("pointerover", () => {
-      if (state.phase === "planning" && state.spiritStones >= def.baseCost) {
+      if (state.phase === "planning") {
         this.drawCard(bg, def.rarity, id === this.selectedId, true);
       }
     });
@@ -173,8 +173,7 @@ export class HandBar {
       this.drawCard(bg, def.rarity, id === this.selectedId, false);
     });
     container.on("pointerdown", () => {
-      const affordable = state.spiritStones >= def.baseCost;
-      if (state.phase === "planning" && affordable) this.onSelect(id);
+      if (state.phase === "planning") this.onSelect(id);
     });
 
     return { container, bg, baseY: cy, rarityKey: def.rarity };
@@ -217,11 +216,9 @@ export class HandBar {
 
   private updateSelectionVisuals(state: GameState): void {
     for (const [id, card] of this.cards) {
-      const def = getBuildingDef(id);
-      const affordable = state.spiritStones >= def.baseCost;
       const selected = id === this.selectedId;
       this.drawCard(card.bg, card.rarityKey, selected, false);
-      card.container.setAlpha(affordable && state.phase === "planning" ? 1 : 0.5);
+      card.container.setAlpha(state.phase === "planning" ? 1 : 0.5);
 
       // 抽出 / 归位动画
       this.scene.tweens.killTweensOf(card.container);

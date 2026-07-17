@@ -177,7 +177,7 @@ export class HandDetailPanel {
     };
 
     stat("占地尺寸", `${def.size.w} × ${def.size.h}`);
-    stat("灵石花费", `◈ ${def.baseCost}`, SKIN.textGold);
+    stat("建造成本", "免费", "#9ff0a6");
     if (def.baseRevenue > 0) {
       stat("基础收益", `+${def.baseRevenue} / 场`, "#9ff0a6");
     } else {

@@ -8,7 +8,6 @@ import {
   placeBuilding,
   removeBuilding,
   resolveDay,
-  upgradeBuilding,
 } from "../controllers/TurnController";
 import {
   canPlaceFootprint,
@@ -234,12 +233,7 @@ export class ParkScene extends Phaser.Scene {
       if (this.selectedBuildingId) {
         this.tryPlace(idx);
       } else if (occupantAt(this.state, idx)) {
-        this.detail.open(
-          this.state,
-          idx,
-          () => this.doUpgrade(idx),
-          () => this.doRemove(idx),
-        );
+        this.detail.open(this.state, idx, () => this.doRemove(idx));
       }
     });
   }
@@ -268,7 +262,7 @@ export class ParkScene extends Phaser.Scene {
     const def = getBuildingDef(id);
     this.cardDetail.open(def);
     this.hintText.setText(
-      `放置中：${def.name} ${def.size.w}×${def.size.h}（◈${def.baseCost}）— 点击放置，中键/R 旋转，右键/ESC 取消`,
+      `放置中：${def.name} ${def.size.w}×${def.size.h}（免费）— 点击放置，中键/R 旋转，右键/ESC 取消`,
     );
     this.updatePlacementPreview();
   }
@@ -339,25 +333,11 @@ export class ParkScene extends Phaser.Scene {
       this.hand.refresh(this.state);
       this.hand.setSelected(this.selectedBuildingId, this.state);
       this.autosave();
-      // 灵石不足以再放置则自动取消
-      const def = getBuildingDef(this.selectedBuildingId);
-      if (this.state.spiritStones < def.baseCost) this.cancelSelection();
-      else this.updatePlacementPreview();
+      // 建造免费：放置后保持选中，可继续连续放置
+      this.updatePlacementPreview();
     } else {
       audio.playSfx("invalid");
       this.hud.showToast(res.message ?? "无法放置", true);
-    }
-  }
-
-  private doUpgrade(idx: number): void {
-    const res = upgradeBuilding(this.state, idx);
-    if (res.ok) {
-      audio.playSfx("upgrade");
-      this.detail.close();
-      this.refreshAll();
-      this.autosave();
-    } else {
-      this.hud.showToast(res.message ?? "无法升级", true);
     }
   }
 

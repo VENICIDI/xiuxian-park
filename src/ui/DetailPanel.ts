@@ -1,15 +1,14 @@
 import Phaser from "phaser";
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from "../game/config";
 import { getBuildingDef } from "../game/data/buildings";
-import { MAX_LEVEL, RARITY_LABEL } from "../game/models/building";
+import { RARITY_LABEL } from "../game/models/building";
 import type { GameState } from "../game/models/game-state";
-import { nextUpgradeCost } from "../game/controllers/TurnController";
 import { occupantAt } from "../game/systems/PlacementSystem";
 import { effectiveSize } from "../game/models/building";
 import { DEPTH, FONT_FAMILY, RADIUS, THEME } from "../game/theme";
 import { Button } from "./Button";
 
-/** 建筑详情弹窗：升级 / 拆除。 */
+/** 建筑详情弹窗：查看 / 拆除。 */
 export class DetailPanel {
   private scene: Phaser.Scene;
   private group: Phaser.GameObjects.Group;
@@ -27,7 +26,6 @@ export class DetailPanel {
   open(
     state: GameState,
     index: number,
-    onUpgrade: () => void,
     onRemove: () => void,
   ): void {
     this.close();
@@ -59,7 +57,7 @@ export class DetailPanel {
     this.addText(
       cx,
       cy - ph / 2 + 60,
-      `${RARITY_LABEL[def.rarity]} · Lv.${inst.level}/${MAX_LEVEL}`,
+      RARITY_LABEL[def.rarity],
       16,
       THEME.accentText,
     );
@@ -78,25 +76,8 @@ export class DetailPanel {
 
     this.addMultiline(cx - pw / 2 + 28, cy - ph / 2 + 90, lines, pw - 56);
 
-    const upgradeCost = nextUpgradeCost(state, index);
-    const canUpgrade =
-      upgradeCost != null && state.spiritStones >= upgradeCost;
-    const upgradeLabel =
-      upgradeCost == null ? "已满级" : `升级 (◈${upgradeCost})`;
-
-    const upBtn = new Button(this.scene, cx - 110, cy + ph / 2 - 44, upgradeLabel, {
-      width: 190,
-      height: 50,
-      onClick: () => {
-        onUpgrade();
-      },
-    });
-    upBtn.setDepth(DEPTH.modal + 2);
-    upBtn.setEnabled(canUpgrade);
-    this.group.add(upBtn);
-
-    const rmBtn = new Button(this.scene, cx + 110, cy + ph / 2 - 44, "拆除(返还50%)", {
-      width: 190,
+    const rmBtn = new Button(this.scene, cx, cy + ph / 2 - 44, "拆除", {
+      width: 200,
       height: 50,
       variant: "danger",
       onClick: () => {

@@ -236,7 +236,7 @@ export class BoardView {
     const fp = footprintDiamond(gx, gy, eff.w, eff.h);
     const center = fp.center;
     const disabled = (inst.disabledDays ?? 0) > 0;
-    const H = this.buildingHeight(def) + (inst.level - 1) * 8;
+    const H = this.buildingHeight(def);
 
     const rel = (p: Pt): Pt => ({ x: p.x - center.x, y: p.y - center.y });
     const back = rel(fp.back);
@@ -364,18 +364,6 @@ export class BoardView {
       })
       .setOrigin(0.5);
     container.add(name);
-
-    // 等级星
-    const stars = this.scene.add
-      .text(rLeft.x + 6, rLeft.y - 2, "★".repeat(inst.level), {
-        fontFamily: FONT_FAMILY,
-        fontSize: "11px",
-        color: "#ffd45c",
-        stroke: "#241b3a",
-        strokeThickness: 2,
-      })
-      .setOrigin(0, 1);
-    container.add(stars);
 
     if (disabled) {
       container.setAlpha(0.55);

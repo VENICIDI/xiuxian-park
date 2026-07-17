@@ -2,7 +2,6 @@ import { BOARD_SIZE, SCHEMA_VERSION } from "../config";
 import { BALANCE } from "../data/balance";
 import { getBuildingDef } from "../data/buildings";
 import { getDailyEvent } from "../data/daily-events";
-import { MAX_LEVEL } from "../models/building";
 import type { GameState, PresentationEvent, RevenueBreakdown, SimulationResult } from "../models/game-state";
 import { RandomService } from "../services/RandomService";
 import {
@@ -290,26 +289,8 @@ export function placeBuilding(
   const check = canPlaceFootprint(state, index, def, rotation);
   if (!check.ok) return { ok: false, message: check.reason };
 
-  if (state.spiritStones < def.baseCost) {
-    return { ok: false, message: "灵石不足" };
-  }
-
-  state.spiritStones -= def.baseCost;
+  // 建造免费：不消耗灵石
   state.board[index] = makeInstance(definitionId, index, rotation);
-  return { ok: true };
-}
-
-export function upgradeBuilding(state: GameState, index: number): ActionResult {
-  if (state.phase !== "planning") return { ok: false, message: "当前阶段不可升级" };
-  const inst = occupantAt(state, index);
-  if (!inst) return { ok: false, message: "该格无建筑" };
-  const def = getBuildingDef(inst.definitionId);
-  if (inst.level >= MAX_LEVEL) return { ok: false, message: "已达最高等级" };
-  const cost = def.upgradeCosts[inst.level - 1];
-  if (state.spiritStones < cost) return { ok: false, message: "灵石不足" };
-
-  state.spiritStones -= cost;
-  inst.level += 1;
   return { ok: true };
 }
 
@@ -317,18 +298,7 @@ export function removeBuilding(state: GameState, index: number): ActionResult {
   if (state.phase !== "planning") return { ok: false, message: "当前阶段不可拆除" };
   const inst = occupantAt(state, index);
   if (!inst) return { ok: false, message: "该格无建筑" };
-  const def = getBuildingDef(inst.definitionId);
-  const refund = Math.floor(def.baseCost * 0.5);
-  state.spiritStones += refund;
+  // 建造免费，拆除不返还灵石
   state.board[positionToIndex(inst.position)] = null;
-  return { ok: true, message: `已拆除，返还 ${refund} 灵石` };
-}
-
-/** 升级到下一级的价格（用于 UI 展示），无更多等级返回 null。 */
-export function nextUpgradeCost(state: GameState, index: number): number | null {
-  const inst = occupantAt(state, index);
-  if (!inst) return null;
-  const def = getBuildingDef(inst.definitionId);
-  if (inst.level >= MAX_LEVEL) return null;
-  return def.upgradeCosts[inst.level - 1];
+  return { ok: true, message: "已拆除" };
 }

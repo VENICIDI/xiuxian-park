@@ -13,8 +13,8 @@ export const BALANCE = {
   maxVisitorCount: 40,
 
   /** 每天需要缴纳的“灵脉维护费”（运营成本），随天数增长 */
-  dailyUpkeepBase: 40,
-  dailyUpkeepPerDay: 12,
+  dailyUpkeepBase: 300,
+  dailyUpkeepPerDay: 95,
 
   /** 每个等级的收益乘区系数（Lv1..Lv4） */
   levelMultiplier: [1.0, 1.4, 1.9, 2.5] as number[],
@@ -28,7 +28,7 @@ export const BALANCE = {
   fatigueSpendPenaltyPerPoint: 0.004,
 
   /** 门派喜欢/厌恶标签对消费的加成/惩罚 */
-  likedTagBonus: 0.35,
+  likedTagBonus: 0.25,
   dislikedTagPenalty: 0.4,
 
   /** 刺激对满意度的影响系数 */
@@ -43,8 +43,8 @@ export const BALANCE = {
    * 每天结算后若当前灵石 ≤ 当天斩杀线 → 直接被董事会逐出，游戏失败。
    */
   killLine: {
-    base: 40,
-    perDay: 24,
+    base: 50,
+    perDay: 55,
   },
 
   /** 三选一候选数量 */
@@ -58,10 +58,10 @@ export const BALANCE = {
     /** 满刻度 */
     max: 100,
     /** 每 1 灵石收益积累的刺激度 */
-    perStone: 0.6,
+    perStone: 0.4,
     /** 狂欢持续时长（毫秒，真实时间，不随快进缩短） */
     frenzyMs: 5000,
     /** 狂欢期间的收益倍率 */
-    frenzyMultiplier: 2,
+    frenzyMultiplier: 1.5,
   },
 } as const;

@@ -104,9 +104,11 @@ export function createNewGame(seed?: number): GameState {
       failureReason: null,
     },
   };
-  // 开局随机发放 3 张建筑卡
+  // 开局发放 3 张建筑卡：必定含「仙侠游乐园」，其余随机
   const rng = rngFor(base);
-  base.ownedBuildingIds = generateDraft(rng);
+  const forcedId = "xian-park";
+  const filler = generateDraft(rng, [forcedId]);
+  base.ownedBuildingIds = [forcedId, ...filler].slice(0, BALANCE.draftChoices);
   commitRng(base, rng);
   return startDay(base);
 }

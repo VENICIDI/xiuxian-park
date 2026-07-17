@@ -45,6 +45,8 @@ describe("存档", () => {
 
   it("读取的存档可继续推进天数", () => {
     const s0 = newGame(2024);
+    // 给足灵石以越过当天斩杀线，聚焦于「读档后能继续推进天数」而非开局经济
+    s0.spiritStones = 500;
     // 结算当天后应自动推进到第 2 天（无三选一弹窗）
     const s = resolveDay(s0).nextState;
     expect(s.day).toBe(2);

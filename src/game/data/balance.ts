@@ -4,7 +4,7 @@
 
 export const BALANCE = {
   /** 开局灵石 */
-  startingSpiritStones: 200,
+  startingSpiritStones: 0,
   /** 开局每日基础游客数 */
   baseVisitorCount: 8,
   /** 每天游客自然增长 */

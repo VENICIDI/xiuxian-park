@@ -365,6 +365,9 @@ export class ParkScene extends Phaser.Scene {
     this.skipBtn.setVisible(true);
     this.hintText.setText("营业中……游客正在游玩与消费。");
 
+    // 左侧仪表盘进入实时模式：以当天起始灵石为基准，随游客消费实时累加
+    this.gauge.beginLiveEarnings(this.state.spiritStones, this.state.day);
+
     this.anim.play({
       state: this.state,
       events: result.events,
@@ -378,6 +381,7 @@ export class ParkScene extends Phaser.Scene {
     this.isAnimating = false;
     this.speedBtn.setVisible(false);
     this.skipBtn.setVisible(false);
+    this.gauge.endLiveEarnings(); // 退出实时模式，下方 refreshAll 以真实结算值收敛
     this.state = nextState;
 
     this.refreshAll(); // 已推进到下一天：刷新棋盘/HUD/底部 3 张新建筑卡
@@ -401,6 +405,8 @@ export class ParkScene extends Phaser.Scene {
 
   // ————————————————— 特效 —————————————————
   private spawnCoin(x: number, y: number, amount: number, thunder: boolean): void {
+    // 实时把这笔收益累加到左侧仪表盘
+    this.gauge.addLiveEarnings(amount);
     // 赚钱数字：黄色向上飘（规范十四/十六：地图持续"活着"）
     if (thunder) {
       this.fx.floatText(x, y - 8, `+${amount}`, "#b79dff", 22);

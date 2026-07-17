@@ -36,6 +36,9 @@ export class PressureGauge {
   private valueText: Phaser.GameObjects.Text;
   private killLineText: Phaser.GameObjects.Text;
   private displayed = -1;
+  /** 营业动画期间的实时灵石累计值；为 null 时表示非实时模式。 */
+  private liveStones: number | null = null;
+  private liveKillLine = 0;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -46,7 +49,7 @@ export class PressureGauge {
 
     // 标题
     scene.add
-      .text(GX, PY + 11, "生存灵石", {
+      .text(GX, PY + 11, "股东压力", {
         fontFamily: FONT_FAMILY,
         fontSize: "12px",
         color: SKIN.textGold,
@@ -111,9 +114,8 @@ export class PressureGauge {
     this.arc.strokePath();
   }
 
-  update(state: GameState): void {
-    const killLine = killLineForDay(state.day);
-    const stones = Math.round(state.spiritStones);
+  /** 绘制圆弧 + 颜色 + 斩杀线文本，返回安全余量比例。不负责设置中心数字。 */
+  private paint(stones: number, killLine: number): number {
     // 安全余量：灵石=斩杀线 → 0（空/红/死）；灵石≥2×斩杀线 → 1（满/绿）
     const denom = Math.max(1, killLine);
     const frac = Phaser.Math.Clamp((stones - killLine) / denom, 0, 1);
@@ -141,27 +143,31 @@ export class PressureGauge {
 
     this.valueText.setColor(color === THEME.gold ? THEME.textGold : `#${color.toString(16).padStart(6, "0")}`);
     this.killLineText.setText(`◈ ${killLine}`);
+    return frac;
+  }
+
+  update(state: GameState): void {
+    this.liveStones = null; // 退出实时模式
+    const killLine = killLineForDay(state.day);
+    const stones = Math.round(state.spiritStones);
+    const frac = this.paint(stones, killLine);
 
     // 数字滚动
-    if (this.displayed < 0) {
+    if (this.displayed < 0 || this.displayed === stones) {
       this.displayed = stones;
       this.valueText.setText(`${stones}`);
-      return;
+    } else {
+      const counter = { v: this.displayed };
+      this.displayed = stones;
+      this.scene.tweens.add({
+        targets: counter,
+        v: stones,
+        duration: 500,
+        ease: "Cubic.easeOut",
+        onUpdate: () => this.valueText.setText(`${Math.round(counter.v)}`),
+        onComplete: () => this.valueText.setText(`${stones}`),
+      });
     }
-    if (this.displayed === stones) {
-      this.valueText.setText(`${stones}`);
-      return;
-    }
-    const counter = { v: this.displayed };
-    this.displayed = stones;
-    this.scene.tweens.add({
-      targets: counter,
-      v: stones,
-      duration: 500,
-      ease: "Cubic.easeOut",
-      onUpdate: () => this.valueText.setText(`${Math.round(counter.v)}`),
-      onComplete: () => this.valueText.setText(`${stones}`),
-    });
     // 危险区脉冲（安全余量很低时）
     if (frac <= 0.15) {
       this.scene.tweens.add({
@@ -172,5 +178,38 @@ export class PressureGauge {
         ease: "Quad.easeOut",
       });
     }
+  }
+
+  /** 营业开始：进入实时收益模式，以当天起始灵石与斩杀线为基准。 */
+  beginLiveEarnings(baseStones: number, day: number): void {
+    this.liveKillLine = killLineForDay(day);
+    this.liveStones = Math.round(baseStones);
+    this.displayed = this.liveStones;
+    this.paint(this.liveStones, this.liveKillLine);
+    this.valueText.setText(`${this.liveStones}`);
+  }
+
+  /** 游客经过建筑消费：把该笔收益实时累加到仪表盘。 */
+  addLiveEarnings(amount: number): void {
+    if (this.liveStones == null) return;
+    this.liveStones += amount;
+    this.displayed = this.liveStones;
+    this.paint(this.liveStones, this.liveKillLine);
+    this.valueText.setText(`${Math.round(this.liveStones)}`);
+    // 轻微跳动反馈（先清除上一次，避免叠加）
+    this.scene.tweens.killTweensOf(this.valueText);
+    this.valueText.setScale(1);
+    this.scene.tweens.add({
+      targets: this.valueText,
+      scale: 1.14,
+      duration: 90,
+      yoyo: true,
+      ease: "Quad.easeOut",
+    });
+  }
+
+  /** 营业结束：退出实时模式（后续 update 会以真实结算值收敛）。 */
+  endLiveEarnings(): void {
+    this.liveStones = null;
   }
 }

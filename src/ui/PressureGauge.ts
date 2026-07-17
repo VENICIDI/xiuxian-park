@@ -49,7 +49,7 @@ export class PressureGauge {
 
     // 标题
     scene.add
-      .text(GX, PY + 11, "股东压力", {
+      .text(GX, PY + 11, "董事会压力", {
         fontFamily: FONT_FAMILY,
         fontSize: "12px",
         color: SKIN.textGold,
